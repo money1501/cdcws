@@ -25,11 +25,11 @@ The repo ships a blueprint at [`render.yaml`](../render.yaml).
 2. Render reads `render.yaml` and creates the `drawgon-api` web service.
 3. Fill in the three secrets marked `sync: false`:
 
-   | Variable | Value |
-   |---|---|
-   | `DATABASE_URL` | The Supabase **session pooler** URI, port `5432` |
-   | `BETTER_AUTH_SECRET` | Reuse the local value, or `openssl rand -hex 32` |
-   | `BETTER_AUTH_URL` | `https://drawgon-api.onrender.com` (this service's own URL) |
+   | Variable             | Value                                                       |
+   | -------------------- | ----------------------------------------------------------- |
+   | `DATABASE_URL`       | The Supabase **session pooler** URI, port `5432`            |
+   | `BETTER_AUTH_SECRET` | Reuse the local value, or `openssl rand -hex 32`            |
+   | `BETTER_AUTH_URL`    | `https://drawgon-api.onrender.com` (this service's own URL) |
 
    Use the session pooler (`:5432`), **not** the transaction pooler (`:6543`).
    TypeORM and better-auth both use prepared statements, which PgBouncer's
@@ -38,9 +38,9 @@ The repo ships a blueprint at [`render.yaml`](../render.yaml).
 4. Deploy. The health check at `/` runs `SELECT 1`, so a green service means
    the Supabase connection is live — not merely that Node started.
 
-Migrations are **not** run automatically. They are already applied to this
-Supabase project; for a fresh database run `npm run migration:run` from
-`backend/` with `DATABASE_URL` pointing at it.
+Pending migrations run automatically when the Render service starts. For a
+fresh database outside Render, run `npm run migration:run` from `backend/`
+with `DATABASE_URL` pointing at it before starting the API.
 
 > On Render's free plan the service sleeps after ~15 minutes idle, so the first
 > request after a quiet spell takes 30–60s. Later requests are normal speed.
@@ -53,7 +53,7 @@ Saving the variable changes nothing on its own — you must rebuild.
 1. Site settings → Environment variables → `VITE_API_URL` =
    `https://drawgon-api.onrender.com`
 2. Deploys → **Trigger deploy → Clear cache and deploy site**.
-3. Verify at `/debug/health`: it should read *"Backend reachable"*.
+3. Verify at `/debug/health`: it should read _"Backend reachable"_.
 
 If the value is missing, the bundle falls back to `http://localhost:3000`. An
 HTTPS page blocks that as mixed content before the request leaves the browser,
