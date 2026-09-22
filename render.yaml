@@ -33,7 +33,6 @@ services:
     # Apply any pending schema changes before the API accepts requests. This
     # keeps a fresh or previously deployed database aligned with the entities.
     startCommand: cd backend && npm run migration:run && npm run start:prod
-
     # AppController's GET / runs `SELECT 1`, so a passing health check also
     # proves the Supabase connection is live — not just that Node booted.
     healthCheckPath: /
