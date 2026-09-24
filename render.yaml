@@ -29,7 +29,9 @@ services:
       cd backend &&
       npm ci --include=dev &&
       rm -rf dist tsconfig.build.tsbuildinfo &&
-      npm run build
+      npm run build &&
+      cd ../database &&
+      npm ci
     # Apply any pending schema changes before the API accepts requests. This
     # keeps a fresh or previously deployed database aligned with the entities.
     startCommand: cd backend && npm run migration:run && npm run start:prod
