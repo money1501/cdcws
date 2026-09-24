@@ -122,6 +122,8 @@ ccwp/
 
 ## Getting Started
 
+> For an in-depth setup walkthrough after cloning the repository, see the [Setup Guide](docs/setup.md).
+
 ### Prerequisites
 
 - **Node.js** `>= 20.11` (see `.nvmrc` — use `nvm use`)
