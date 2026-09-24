@@ -1,12 +1,10 @@
-import { LayoutGrid, Plus, Search, Users } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { CommunitySummary } from '@shared/community';
 import { createCommunity, listCommunities } from '@/lib/communities-api';
 import { CommunityCard } from '@/features/community/CommunityCard';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
-import { DrawgonWordmark } from '@/components/DrawgonWordmark';
-import { ThemeToggle } from '@/components/ThemeToggle';
 
 export function CommunitiesPage() {
   const [items, setItems] = useState<CommunitySummary[]>([]);
@@ -55,29 +53,7 @@ export function CommunitiesPage() {
     'w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100';
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="mb-8 flex items-center justify-between">
-          <DrawgonWordmark to="/" />
-          <div className="flex items-center gap-1">
-            <Link
-              to="/community"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-            >
-              <Users size={15} />
-              All boards
-            </Link>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-            >
-              <LayoutGrid size={15} />
-              My boards
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
-
+    <div className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
             Communities
@@ -187,6 +163,5 @@ export function CommunitiesPage() {
           ))}
         </ul>
       </div>
-    </div>
   );
 }

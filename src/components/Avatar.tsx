@@ -23,12 +23,29 @@ function colorFor(name: string) {
 
 interface AvatarProps {
   name: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
+  /** When provided, renders an <img> instead of the coloured initials circle. */
+  avatarUrl?: string | null;
 }
 
-export function Avatar({ name, size = 'md' }: AvatarProps) {
+export function Avatar({ name, size = 'md', avatarUrl }: AvatarProps) {
   const initial = name.trim().charAt(0).toUpperCase() || '?';
-  const dims = size === 'sm' ? 'h-6 w-6 text-[10px]' : 'h-9 w-9 text-sm';
+  const dims =
+    size === 'sm'
+      ? 'h-6 w-6 text-[10px]'
+      : size === 'lg'
+        ? 'h-16 w-16 text-2xl'
+        : 'h-9 w-9 text-sm';
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={`inline-block shrink-0 rounded-full object-cover ${dims}`}
+      />
+    );
+  }
 
   return (
     <span

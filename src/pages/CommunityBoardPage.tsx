@@ -1,6 +1,6 @@
 import { ArrowLeft, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type { Editor } from "@tldraw/tldraw";
 import type { FeedItemDetail } from "@shared/community";
 import { getCommunityBoard, duplicateBoard } from "@/lib/community-api";
@@ -43,12 +43,13 @@ export function CommunityBoardPage() {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4">
         <p className="text-neutral-500">{error}</p>
-        <Link
-          to="/community"
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
           className="text-sm font-medium text-brand hover:text-brand-hover"
         >
-          Back to community
-        </Link>
+          Go back
+        </button>
       </div>
     );
   }
@@ -61,13 +62,14 @@ export function CommunityBoardPage() {
     <div className="flex h-screen flex-col">
       <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-3 dark:border-neutral-800">
         <div className="flex min-w-0 items-center gap-3">
-          <Link
-            to="/community"
-            aria-label="Back to community"
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            aria-label="Go back"
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
           >
             <ArrowLeft size={16} />
-          </Link>
+          </button>
           <div className="min-w-0">
             <h1 className="truncate text-lg font-semibold text-neutral-900 dark:text-neutral-50">
               {item.title}

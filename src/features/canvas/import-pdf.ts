@@ -18,7 +18,7 @@ export class PdfImportError extends Error {}
  * pdf.js ships its worker as a separate chunk. Importing it lazily keeps
  * ~1MB of PDF machinery out of the main bundle until someone imports a PDF.
  */
-async function loadPdfJs() {
+export async function loadPdfJs() {
   const pdfjs = await import('pdfjs-dist');
   const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;

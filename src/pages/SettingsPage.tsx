@@ -19,7 +19,7 @@ export function SettingsPage() {
     'mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-400';
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-8">
+    <div className="mx-auto max-w-6xl px-6 py-8">
       <h1 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
         Settings
       </h1>

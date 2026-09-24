@@ -4,6 +4,7 @@ import type {
   BoardSummary,
   BoardVisibility,
   CreateBoardInput,
+  BoardCollaborator,
 } from '@shared/board';
 import type { BoardPostMedia } from '@shared/board';
 
@@ -77,4 +78,44 @@ export async function publishBoard(
 
 export async function deleteBoard(id: string): Promise<void> {
   await apiClient.delete(`/boards/${id}`);
+}
+
+export async function inviteCollaborator(
+  boardId: string,
+  username: string,
+  role: 'editor' | 'viewer' = 'editor',
+): Promise<void> {
+  await apiClient.post(`/boards/${boardId}/collaborators`, { username, role });
+}
+
+export async function removeCollaborator(
+  boardId: string,
+  userId: string,
+): Promise<void> {
+  await apiClient.delete(`/boards/${boardId}/collaborators/${userId}`);
+}
+
+export async function listCollaborators(
+  boardId: string,
+): Promise<BoardCollaborator[]> {
+  const res = await apiClient.get<BoardCollaborator[]>(`/boards/${boardId}/collaborators`);
+  return res.data;
+}
+
+export async function listSharedBoards(): Promise<BoardSummary[]> {
+  const res = await apiClient.get<BoardSummary[]>('/boards/shared');
+  return res.data;
+}
+
+export async function generateInviteLink(
+  boardId: string,
+  role: 'editor' | 'viewer' = 'editor',
+): Promise<{ token: string }> {
+  const res = await apiClient.post<{ token: string }>(`/boards/${boardId}/collaborators/invite-link`, { role });
+  return res.data;
+}
+
+export async function joinBoardViaToken(token: string): Promise<{ boardId: string }> {
+  const res = await apiClient.post<{ boardId: string }>(`/boards/join/${token}`);
+  return res.data;
 }

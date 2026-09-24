@@ -18,9 +18,14 @@ export class BoardsController {
     return this.boardsService.listByOwner(session.user.id);
   }
 
+  @Get('shared')
+  listShared(@Session() session: UserSession) {
+    return this.boardsService.listSharedWith(session.user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @Session() session: UserSession) {
-    return this.boardsService.findOneOwnedBy(id, session.user.id);
+    return this.boardsService.findOneAccessibleBy(id, session.user.id);
   }
 
   @Post()

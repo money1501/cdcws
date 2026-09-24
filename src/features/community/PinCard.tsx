@@ -129,8 +129,14 @@ export function PinCard({ item }: { item: FeedItem }) {
           </p>
         )}
         <div className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-          <Avatar name={item.ownerName} size="sm" />
-          <span className="truncate">{item.ownerName}</span>
+          <Link
+            to={`/users/${item.ownerId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1.5 transition hover:text-brand"
+          >
+            <Avatar name={item.ownerName} size="sm" />
+            <span className="truncate">{item.ownerName}</span>
+          </Link>
           <span aria-hidden="true">·</span>
           <MessageSquare size={12} />
           {item.commentCount}

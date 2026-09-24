@@ -1,9 +1,9 @@
-import { Compass, FileText, Plus, Sparkles } from 'lucide-react';
+import { Compass, FileText, Plus, Sparkles, Trash2, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { BoardSummary } from '@shared/board';
 import type { FeedItem } from '@shared/community';
-import { createBoard, listBoards } from '@/lib/boards-api';
+import { createBoard, deleteBoard, listBoards, listSharedBoards } from '@/lib/boards-api';
 import { listCommunityFeed } from '@/lib/community-api';
 import { useSession } from '@/lib/auth-client';
 import { PinCard } from '@/features/community/PinCard';
@@ -19,6 +19,7 @@ function greeting() {
 
 export function HomePage() {
   const [boards, setBoards] = useState<BoardSummary[]>([]);
+  const [sharedBoards, setSharedBoards] = useState<BoardSummary[]>([]);
   const [trending, setTrending] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -27,9 +28,10 @@ export function HomePage() {
   const toast = useToast();
 
   useEffect(() => {
-    Promise.all([listBoards(), listCommunityFeed()])
-      .then(([mine, feed]) => {
+    Promise.all([listBoards(), listSharedBoards(), listCommunityFeed()])
+      .then(([mine, shared, feed]) => {
         setBoards(mine.slice(0, 4));
+        setSharedBoards(shared);
         setTrending([...feed].sort((a, b) => b.score - a.score).slice(0, 12));
       })
       .finally(() => setLoading(false));
@@ -45,6 +47,20 @@ export function HomePage() {
       toast.error('Could not create canvas');
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDeleteBoard(e: React.MouseEvent, boardId: string, title: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
+
+    try {
+      await deleteBoard(boardId);
+      setBoards((prev) => prev.filter((b) => b.id !== boardId));
+      toast.success('Board deleted');
+    } catch {
+      toast.error('Could not delete board');
     }
   }
 
@@ -95,10 +111,10 @@ export function HomePage() {
           </h2>
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {boards.map((board) => (
-              <li key={board.id}>
+              <li key={board.id} className="relative group">
                 <Link
                   to={`/boards/${board.id}`}
-                  className="group block overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+                  className="group/card block overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
                 >
                   {board.thumbnailUrl ? (
                     <img
@@ -111,8 +127,8 @@ export function HomePage() {
                       <FileText size={20} className="text-neutral-400" />
                     </div>
                   )}
-                  <div className="p-3">
-                    <p className="truncate text-sm font-medium text-neutral-900 group-hover:text-brand dark:text-neutral-50">
+                  <div className="p-3 pr-8">
+                    <p className="truncate text-sm font-medium text-neutral-900 group-hover/card:text-brand dark:text-neutral-50">
                       {board.title}
                     </p>
                     <p className="mt-0.5 text-xs text-neutral-500">
@@ -120,6 +136,14 @@ export function HomePage() {
                     </p>
                   </div>
                 </Link>
+                <button
+                  type="button"
+                  onClick={(e) => void handleDeleteBoard(e, board.id, board.title)}
+                  title="Delete board"
+                  className="absolute right-2 bottom-2.5 inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 opacity-80 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 sm:opacity-0 dark:text-neutral-500 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+                >
+                  <Trash2 size={14} />
+                </button>
               </li>
             ))}
           </ul>
@@ -139,7 +163,42 @@ export function HomePage() {
         </section>
       )}
 
-      {!loading && boards.length === 0 && trending.length === 0 && (
+      {!loading && sharedBoards.length > 0 && (
+        <section className="mt-10">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-neutral-400">
+            <Users size={13} />
+            Shared with me
+          </h2>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {sharedBoards.map((board) => (
+              <li key={board.id}>
+                <Link
+                  to={`/boards/${board.id}`}
+                  className="group block overflow-hidden rounded-xl border border-brand/20 bg-brand/5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:bg-brand/10"
+                >
+                  {board.thumbnailUrl ? (
+                    <img src={board.thumbnailUrl} alt="" className="h-28 w-full object-cover object-top" />
+                  ) : (
+                    <div className="flex h-28 items-center justify-center bg-gradient-to-br from-violet-500/10 to-cyan-500/10">
+                      <Users size={20} className="text-neutral-400" />
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <p className="truncate text-sm font-medium text-neutral-900 group-hover:text-brand dark:text-neutral-50">
+                      {board.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-neutral-500">
+                      {new Date(board.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {!loading && boards.length === 0 && trending.length === 0 && sharedBoards.length === 0 && (
         <div className="mt-10 flex flex-col items-center gap-3 rounded-xl border border-dashed border-neutral-300 py-20 text-center dark:border-neutral-700">
           <Sparkles size={24} className="text-neutral-400" />
           <p className="text-neutral-500">Nothing here yet. Create your first canvas.</p>

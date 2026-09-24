@@ -1,10 +1,13 @@
 import { AppRouter } from '@/routes/AppRouter';
 import { ToastProvider } from '@/components/toast/ToastProvider';
+import { NotificationsProvider } from '@/lib/notifications-context';
 
 function App() {
   return (
     <ToastProvider>
-      <AppRouter />
+      <NotificationsProvider>
+        <AppRouter />
+      </NotificationsProvider>
     </ToastProvider>
   );
 }

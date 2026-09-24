@@ -1,4 +1,4 @@
-import { ArrowLeft, Sparkles, Trash2 } from "lucide-react";
+import { Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type { CommunitySummary, FeedItem } from "@shared/community";
@@ -12,7 +12,6 @@ import {
 import { BoardCard } from "@/features/community/BoardCard";
 import { CommunityAvatar } from "@/features/community/CommunityAvatar";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export function CommunityPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -92,19 +91,7 @@ export function CommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="mb-6 flex items-center justify-between">
-          <Link
-            to="/communities"
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-          >
-            <ArrowLeft size={15} />
-            Communities
-          </Link>
-          <ThemeToggle />
-        </div>
-
+    <div className="mx-auto max-w-6xl px-6 py-8">
         <header className="mb-8 flex items-start gap-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
           <CommunityAvatar slug={community.slug} size="lg" />
           <div className="min-w-0 flex-1">
@@ -178,6 +165,5 @@ export function CommunityPage() {
           ))}
         </ul>
       </div>
-    </div>
   );
 }

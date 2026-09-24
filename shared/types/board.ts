@@ -38,3 +38,11 @@ export interface UpdateBoardSnapshotInput {
 export interface UpdateBoardVisibilityInput {
   visibility: BoardVisibility;
 }
+
+export interface BoardCollaborator {
+  userId: string;
+  name: string;
+  username: string | null;
+  avatarUrl: string | null;
+  role: 'editor' | 'viewer';
+}

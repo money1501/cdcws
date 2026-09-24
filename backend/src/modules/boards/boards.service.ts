@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Board, BoardVisibility } from '../../database/entities/board.entity';
+import { BoardCollaborator } from '../../database/entities/board-collaborator.entity';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardSnapshotDto } from './dto/update-board-snapshot.dto';
 import { UpdateBoardVisibilityDto } from './dto/update-board-visibility.dto';
@@ -17,6 +18,8 @@ export class BoardsService {
   constructor(
     @InjectRepository(Board)
     private readonly boardsRepository: Repository<Board>,
+    @InjectRepository(BoardCollaborator)
+    private readonly collabsRepository: Repository<BoardCollaborator>,
   ) {}
 
   async listByOwner(ownerId: string): Promise<Board[]> {
@@ -26,6 +29,14 @@ export class BoardsService {
     });
   }
 
+  async listSharedWith(userId: string): Promise<Board[]> {
+    const collabs = await this.collabsRepository.find({
+      where: { userId },
+      relations: { board: true },
+    });
+    return collabs.map(c => c.board!).filter(b => !!b);
+  }
+
   async findOneOwnedBy(id: string, ownerId: string): Promise<Board> {
     const board = await this.boardsRepository.findOne({
       where: { id, ownerId },
@@ -33,6 +44,20 @@ export class BoardsService {
     if (!board) {
       throw new NotFoundException(`Board ${id} not found`);
     }
+    return board;
+  }
+
+  async findOneAccessibleBy(id: string, userId: string): Promise<Board> {
+    const board = await this.boardsRepository.findOne({ where: { id } });
+    if (!board) throw new NotFoundException(`Board ${id} not found`);
+
+    if (board.ownerId !== userId) {
+      const collab = await this.collabsRepository.findOne({
+        where: { boardId: id, userId },
+      });
+      if (!collab) throw new NotFoundException(`Board ${id} not found`);
+    }
+
     return board;
   }
 
@@ -47,10 +72,21 @@ export class BoardsService {
 
   async updateSnapshot(
     id: string,
-    ownerId: string,
+    userId: string,
     dto: UpdateBoardSnapshotDto,
   ): Promise<Board> {
-    const board = await this.findOneOwnedBy(id, ownerId);
+    const board = await this.boardsRepository.findOne({ where: { id } });
+    if (!board) throw new NotFoundException(`Board ${id} not found`);
+
+    if (board.ownerId !== userId) {
+      const collab = await this.collabsRepository.findOne({
+        where: { boardId: id, userId, role: 'editor' },
+      });
+      if (!collab) {
+        throw new NotFoundException(`Board ${id} not found`);
+      }
+    }
+
     board.snapshot = dto.snapshot;
     if (dto.thumbnail !== undefined) {
       board.thumbnailUrl = dto.thumbnail || null;

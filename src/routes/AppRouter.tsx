@@ -11,7 +11,9 @@ import { HealthCheckPage } from '@/pages/HealthCheckPage';
 import { HomePage } from '@/pages/HomePage';
 import { SavedPage } from '@/pages/SavedPage';
 import { ProfilePage } from '@/pages/ProfilePage';
+import { UserProfilePage } from '@/pages/UserProfilePage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { JoinBoardPage } from '@/pages/JoinBoardPage';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
 
@@ -27,11 +29,7 @@ function shell(element: React.ReactNode) {
 const router = createBrowserRouter([
   {
     path: '/',
-    element: (
-      <ProtectedRoute>
-        <DashboardPage />
-      </ProtectedRoute>
-    ),
+    element: shell(<DashboardPage />),
   },
   {
     path: '/boards/:boardId',
@@ -43,11 +41,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/community',
-    element: (
-      <ProtectedRoute>
-        <CommunityFeedPage />
-      </ProtectedRoute>
-    ),
+    element: shell(<CommunityFeedPage />),
   },
   {
     path: '/community/boards/:boardId',
@@ -59,19 +53,11 @@ const router = createBrowserRouter([
   },
   {
     path: '/communities',
-    element: (
-      <ProtectedRoute>
-        <CommunitiesPage />
-      </ProtectedRoute>
-    ),
+    element: shell(<CommunitiesPage />),
   },
   {
     path: '/c/:slug',
-    element: (
-      <ProtectedRoute>
-        <CommunityPage />
-      </ProtectedRoute>
-    ),
+    element: shell(<CommunityPage />),
   },
   {
     path: '/home',
@@ -86,8 +72,28 @@ const router = createBrowserRouter([
     element: shell(<ProfilePage />),
   },
   {
+    path: '/users/:userId',
+    element: shell(<UserProfilePage />),
+  },
+  {
     path: '/settings',
     element: shell(<SettingsPage />),
+  },
+  {
+    path: '/join/:token',
+    element: (
+      <ProtectedRoute>
+        <JoinBoardPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/boards/join/:token',
+    element: (
+      <ProtectedRoute>
+        <JoinBoardPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: '/login',

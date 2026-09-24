@@ -9,7 +9,7 @@ export function VoiceBar({ boardId }: { boardId: string }) {
 
   if (status === 'idle' || status === 'error') {
     return (
-      <div className="pointer-events-auto absolute bottom-4 left-4 z-[400] flex flex-col gap-1">
+      <div className="pointer-events-auto absolute bottom-4 right-4 z-[400] flex flex-col items-end gap-1">
         {error && (
           <span className="rounded-md bg-red-100 px-2 py-1 text-xs text-red-800 dark:bg-red-500/15 dark:text-red-300">
             {error}
@@ -30,7 +30,7 @@ export function VoiceBar({ boardId }: { boardId: string }) {
   const speaking = !muted && selfLevel > 0.08;
 
   return (
-    <div className="pointer-events-auto absolute bottom-4 left-4 z-[400] flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
+    <div className="pointer-events-auto absolute bottom-4 right-4 z-[400] flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-800 dark:bg-neutral-950">
       <span className="inline-flex items-center gap-1.5 px-1.5 text-xs font-semibold text-emerald-500">
         <Radio size={13} className={status === 'connecting' ? 'animate-pulse' : ''} />
         {status === 'connecting' ? 'Connecting' : 'Live'}

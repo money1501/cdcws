@@ -22,6 +22,9 @@ coverage
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+shared/types/*.js
+shared/types/*.js.map
+shared/types/*.d.ts
 
 # Editor directories and files
 .vscode/*
