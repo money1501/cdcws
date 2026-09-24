@@ -46,7 +46,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: https://drawgons.netlify.app
+        value: https://cdcws.vercel.app
       # Set these in the Render dashboard — never commit them.
       #   DATABASE_URL      Supabase session pooler URI (port 5432, not 6543)
       #   BETTER_AUTH_SECRET  reuse the existing value or generate a new one
