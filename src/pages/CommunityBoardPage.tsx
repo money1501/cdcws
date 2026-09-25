@@ -149,10 +149,10 @@ export function CommunityBoardPage() {
         </div>
       </div>
 
-      {/* ── Two-Column Layout (Header & Content) ── */}
+      {/* ── Two-Column Layout ── */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-        {/* ── Left Column: Static Preview Image + Vote / Bookmark ── */}
-        <div className="lg:col-span-7 xl:col-span-8 flex flex-col">
+        {/* ── Left Column: Static Preview Image ── */}
+        <div className="flex flex-col lg:col-span-7 xl:col-span-8">
           <div
             onDoubleClick={openLiveCanvas}
             className="group relative flex min-h-[320px] max-h-[520px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100/80 shadow-sm transition hover:border-brand/50 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/80"
@@ -162,7 +162,7 @@ export function CommunityBoardPage() {
               <img
                 src={item.thumbnailUrl}
                 alt={item.title}
-                className="max-h-[520px] w-full object-contain bg-white transition duration-300 group-hover:scale-[1.01] dark:bg-neutral-950"
+                className="max-h-[520px] w-full bg-white object-contain transition duration-300 group-hover:scale-[1.01] dark:bg-neutral-950"
               />
             ) : (
               <div className="flex aspect-16/10 w-full flex-col items-center justify-center bg-gradient-to-br from-violet-500/15 via-brand/10 to-cyan-500/15 p-8 text-center">
@@ -184,40 +184,33 @@ export function CommunityBoardPage() {
             </div>
           </div>
 
-          {/* Upvote / Downvote & Save Controls directly below preview */}
+          {/* Vote & Bookmark Controls below preview */}
           <div className="mt-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <VoteButtons
-                boardId={item.id}
-                score={item.score}
-                myVote={item.myVote}
-                onChange={(result) => setItem({ ...item, ...result })}
-              />
-
-              <button
-                type="button"
-                onClick={() => void toggleBookmark()}
-                disabled={bookmarkPending}
-                aria-pressed={item.bookmarked}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-2xs transition ${
-                  item.bookmarked
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                    : "border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                }`}
-              >
-                <Bookmark
-                  size={14}
-                  fill={item.bookmarked ? "currentColor" : "none"}
-                />
-                <span>{item.bookmarked ? "Saved" : "Save"}</span>
-              </button>
-            </div>
+            <VoteButtons
+              boardId={item.id}
+              score={item.score}
+              myVote={item.myVote}
+              onChange={(result) => setItem({ ...item, ...result })}
+            />
+            <button
+              type="button"
+              onClick={() => void toggleBookmark()}
+              disabled={bookmarkPending}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
+                item.bookmarked
+                  ? "border-brand bg-brand/10 text-brand dark:border-brand dark:bg-brand/20"
+                  : "border-neutral-200 bg-white text-neutral-600 hover:border-brand hover:text-brand dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+              }`}
+            >
+              <Bookmark size={13} fill={item.bookmarked ? "currentColor" : "none"} />
+              <span>{item.bookmarked ? "Saved" : "Save"}</span>
+            </button>
           </div>
         </div>
 
         {/* ── Right Column: Author Info, Title, Tags, Description, Media ── */}
-        <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-5">
-          {/* Author info & post date (ABOVE title) */}
+        <div className="flex flex-col gap-5 lg:col-span-5 xl:col-span-4">
+          {/* Author info & post date */}
           <div className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white p-3.5 shadow-2xs dark:border-neutral-800 dark:bg-neutral-900">
             <Link
               to={`/users/${item.ownerId}`}

@@ -2,7 +2,6 @@ import { Copy, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createBoard, deleteBoard, duplicateBoard, listBoards, listSharedBoards } from '@/lib/boards-api';
-import { Avatar } from '@/components/Avatar';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
 import { useToast } from '@/components/toast/ToastProvider';
 import type { BoardSummary } from '@shared/board';
