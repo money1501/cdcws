@@ -44,7 +44,12 @@ export class CommunitiesController {
     @Session() session: UserSession,
     @Body() dto: UpdateCommunityDto,
   ) {
-    return this.communitiesService.update(slug, session.user.id, dto);
+    return this.communitiesService.update(
+      slug,
+      session.user.id,
+      dto,
+      Boolean((session.user as any)?.isAdmin),
+    );
   }
 
   @AllowAnonymous()
@@ -71,7 +76,11 @@ export class CommunitiesController {
 
   @Delete(':slug')
   remove(@Param('slug') slug: string, @Session() session: UserSession) {
-    return this.communitiesService.remove(slug, session.user.id);
+    return this.communitiesService.remove(
+      slug,
+      session.user.id,
+      Boolean((session.user as any)?.isAdmin),
+    );
   }
 }
 

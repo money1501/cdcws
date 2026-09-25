@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Comment } from '../../database/entities/comment.entity';
@@ -54,5 +58,46 @@ export class CommentsService {
       counts.set(row.boardId, Number(row.count));
     }
     return counts;
+  }
+
+  async remove(
+    commentId: string,
+    userId: string,
+    isAdmin = false,
+  ): Promise<void> {
+    const comment = await this.commentsRepository.findOne({
+      where: { id: commentId },
+    });
+    if (!comment) {
+      return;
+    }
+    if (comment.userId !== userId && !isAdmin) {
+      throw new ForbiddenException(
+        'Only the author or an admin can delete this comment',
+      );
+    }
+    await this.commentsRepository.remove(comment);
+  }
+
+  async update(
+    commentId: string,
+    userId: string,
+    body: string,
+    isAdmin = false,
+  ): Promise<Comment> {
+    const comment = await this.commentsRepository.findOne({
+      where: { id: commentId },
+      relations: { user: true },
+    });
+    if (!comment) {
+      throw new NotFoundException(`Comment ${commentId} not found`);
+    }
+    if (comment.userId !== userId && !isAdmin) {
+      throw new ForbiddenException(
+        'Only the author or an admin can edit this comment',
+      );
+    }
+    comment.body = body;
+    return this.commentsRepository.save(comment);
   }
 }

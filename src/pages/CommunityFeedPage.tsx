@@ -309,7 +309,13 @@ export function CommunityFeedPage() {
           ) : (
             <div className="columns-2 gap-4 sm:columns-3 lg:columns-4">
               {filteredBoards.map((item) => (
-                <PinCard key={item.id} item={item} />
+                <PinCard
+                  key={item.id}
+                  item={item}
+                  onDelete={(id) =>
+                    setBoards((prev) => prev.filter((b) => b.id !== id))
+                  }
+                />
               ))}
             </div>
           )}

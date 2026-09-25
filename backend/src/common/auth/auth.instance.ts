@@ -32,6 +32,21 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  user: {
+    additionalFields: {
+      /**
+       * Master Admin flag: Grants ownership-bypass permissions across the system.
+       * Note: isAdmin is not set via signup inputs and should be updated directly
+       * in the database (e.g. UPDATE "user" SET "isAdmin" = true WHERE email = '...';).
+       */
+      isAdmin: {
+        type: 'boolean',
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
+    },
+  },
   trustedOrigins: [process.env.FRONTEND_URL ?? 'http://localhost:5173'],
   ...(isProduction && {
     advanced: {

@@ -87,7 +87,13 @@ export function SavedPage() {
       {!loading && session?.user && items.length > 0 && (
         <div className="columns-2 gap-4 sm:columns-3 lg:columns-4">
           {items.map((item) => (
-            <PinCard key={item.id} item={item} />
+            <PinCard
+              key={item.id}
+              item={item}
+              onDelete={(id) =>
+                setItems((prev) => prev.filter((b) => b.id !== id))
+              }
+            />
           ))}
         </div>
       )}

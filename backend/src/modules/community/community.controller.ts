@@ -18,6 +18,15 @@ export class CommunityController {
   }
 
   @AllowAnonymous()
+  @Get('user/:userId')
+  listByUser(
+    @Param('userId') userId: string,
+    @Session() session?: UserSession,
+  ) {
+    return this.communityService.listByUser(userId, session?.user?.id ?? '');
+  }
+
+  @AllowAnonymous()
   @Get(':id')
   getBoard(@Param('id') id: string, @Session() session?: UserSession) {
     return this.communityService.getPublicBoardWithStats(id, session?.user?.id ?? '');

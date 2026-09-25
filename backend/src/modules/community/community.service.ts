@@ -80,6 +80,19 @@ export class CommunityService {
     return this.enrichBoards(boards, currentUserId);
   }
 
+  /** Public and published boards owned by a specific user, newest first. */
+  async listByUser(targetUserId: string, currentUserId: string): Promise<FeedItem[]> {
+    const boards = await this.boardsRepository.find({
+      where: [
+        { ownerId: targetUserId, visibility: BoardVisibility.PUBLIC },
+        { ownerId: targetUserId, visibility: BoardVisibility.PUBLISHED },
+      ],
+      relations: { owner: true },
+      order: { updatedAt: 'DESC' },
+    });
+    return this.enrichBoards(boards, currentUserId);
+  }
+
   async getPublicBoard(id: string): Promise<Board> {
     const board = await this.boardsRepository.findOne({
       where: [

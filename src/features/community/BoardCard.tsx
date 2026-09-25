@@ -1,18 +1,35 @@
-import { Bookmark, MessageSquare } from "lucide-react";
+import { Bookmark, MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { FeedItem } from "@shared/community";
 import { VoteButtons } from "./VoteButtons";
 import { Avatar } from "@/components/Avatar";
 import { addBookmark, removeBookmark } from "@/lib/community-api";
+import { deleteBoard } from "@/lib/boards-api";
+import { useSession } from "@/lib/auth-client";
+import { useToast } from "@/components/toast/ToastProvider";
 
-export function BoardCard({ item }: { item: FeedItem }) {
+export function BoardCard({
+  item,
+  onDelete,
+}: {
+  item: FeedItem;
+  onDelete?: (id: string) => void;
+}) {
   const [stats, setStats] = useState({
     score: item.score,
     myVote: item.myVote,
   });
   const [bookmarked, setBookmarked] = useState(item.bookmarked);
   const [bookmarkPending, setBookmarkPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { data: session } = useSession();
+  const toast = useToast();
+
+  const canDelete = Boolean(
+    session?.user &&
+      (session.user.id === item.ownerId || session.user.isAdmin),
+  );
 
   async function toggleBookmark(e: React.MouseEvent) {
     e.preventDefault();
@@ -28,6 +45,25 @@ export function BoardCard({ item }: { item: FeedItem }) {
       }
     } finally {
       setBookmarkPending(false);
+    }
+  }
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (deleting) return;
+    if (!window.confirm("Delete this post? This cannot be undone")) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteBoard(item.id);
+      toast.success("Post deleted");
+      onDelete?.(item.id);
+    } catch {
+      toast.error("Failed to delete post");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -75,20 +111,34 @@ export function BoardCard({ item }: { item: FeedItem }) {
         />
       )}
 
-      <button
-        type="button"
-        onClick={(e) => void toggleBookmark(e)}
-        disabled={bookmarkPending}
-        aria-pressed={bookmarked}
-        title={bookmarked ? "Remove bookmark" : "Bookmark"}
-        className={`shrink-0 rounded-full p-1.5 transition ${
-          bookmarked
-            ? "text-amber-500"
-            : "text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500 dark:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-400"
-        }`}
-      >
-        <Bookmark size={18} fill={bookmarked ? "currentColor" : "none"} />
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        {canDelete && (
+          <button
+            type="button"
+            onClick={(e) => void handleDelete(e)}
+            disabled={deleting}
+            title="Delete post"
+            className="rounded-full p-1.5 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:text-neutral-500 dark:hover:bg-red-950/60 dark:hover:text-red-400"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={(e) => void toggleBookmark(e)}
+          disabled={bookmarkPending}
+          aria-pressed={bookmarked}
+          title={bookmarked ? "Remove bookmark" : "Bookmark"}
+          className={`rounded-full p-1.5 transition ${
+            bookmarked
+              ? "text-amber-500"
+              : "text-neutral-300 hover:bg-neutral-100 hover:text-neutral-500 dark:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-400"
+          }`}
+        >
+          <Bookmark size={18} fill={bookmarked ? "currentColor" : "none"} />
+        </button>
+      </div>
     </Link>
   );
 }

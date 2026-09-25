@@ -161,7 +161,13 @@ export function HomePage() {
           </h2>
           <div className="columns-2 gap-4 sm:columns-3 lg:columns-4">
             {trending.map((item) => (
-              <PinCard key={item.id} item={item} />
+              <PinCard
+                key={item.id}
+                item={item}
+                onDelete={(id) =>
+                  setTrending((prev) => prev.filter((b) => b.id !== id))
+                }
+              />
             ))}
           </div>
         </section>

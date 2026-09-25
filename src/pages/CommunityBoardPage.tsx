@@ -9,6 +9,7 @@ import {
   Clock,
   Download,
   FileText,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -19,18 +20,22 @@ import {
   addBookmark,
   removeBookmark,
 } from "@/lib/community-api";
+import { deleteBoard } from "@/lib/boards-api";
 import { VoteButtons } from "@/features/community/VoteButtons";
 import { CommentThread } from "@/features/community/CommentThread";
 import { Avatar } from "@/components/Avatar";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useSession } from "@/lib/auth-client";
 
 export function CommunityBoardPage() {
   const { boardId } = useParams<{ boardId: string }>();
   const [item, setItem] = useState<FeedItemDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [duplicating, setDuplicating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [bookmarkPending, setBookmarkPending] = useState(false);
+  const { data: session } = useSession();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -87,6 +92,21 @@ export function CommunityBoardPage() {
     navigate(`/boards/${item.id}`);
   }
 
+  async function handleDeletePost() {
+    if (!item || deleting) return;
+    if (!window.confirm("Delete this post? This cannot be undone")) return;
+    setDeleting(true);
+    try {
+      await deleteBoard(item.id);
+      toast.success("Post deleted");
+      navigate("/community");
+    } catch {
+      toast.error("Failed to delete post.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (error) {
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center gap-4 px-6 text-center">
@@ -107,6 +127,11 @@ export function CommunityBoardPage() {
     return <DrawgonLoader />;
   }
 
+  const canDelete = Boolean(
+    session?.user &&
+      (session.user.id === item.ownerId || session.user.isAdmin),
+  );
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       {/* ── Back Navigation & Actions Bar ── */}
@@ -121,6 +146,17 @@ export function CommunityBoardPage() {
         </button>
 
         <div className="flex items-center gap-2">
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => void handleDeletePost()}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50/50 px-3.5 py-1.5 text-xs font-medium text-red-600 shadow-xs transition hover:bg-red-100 disabled:opacity-50 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400 dark:hover:bg-red-900/40"
+            >
+              <Trash2 size={13} />
+              <span>{deleting ? "Deleting..." : "Delete Post"}</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleShare}

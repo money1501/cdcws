@@ -26,6 +26,9 @@ export class User {
   @Column({ type: 'text', nullable: true })
   image!: string | null;
 
+  @Column({ type: 'boolean', default: false })
+  isAdmin!: boolean;
+
   @Column({ type: 'timestamptz' })
   createdAt!: Date;
 

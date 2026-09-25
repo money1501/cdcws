@@ -60,6 +60,18 @@ export async function addComment(
   return res.data;
 }
 
+export async function listUserBoards(userId: string): Promise<FeedItem[]> {
+  const res = await apiClient.get<FeedItem[]>(`/community/boards/user/${userId}`);
+  return res.data;
+}
+
+export async function deleteComment(
+  boardId: string,
+  commentId: string,
+): Promise<void> {
+  await apiClient.delete(`/community/boards/${boardId}/comments/${commentId}`);
+}
+
 export async function addBookmark(id: string): Promise<{ bookmarked: true }> {
   const res = await apiClient.put<{ bookmarked: true }>(
     `/community/boards/${id}/bookmark`,

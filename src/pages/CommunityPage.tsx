@@ -14,6 +14,7 @@ import { BoardCard } from "@/features/community/BoardCard";
 import { CommunityAvatar } from "@/features/community/CommunityAvatar";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useSession } from "@/lib/auth-client";
 
 export function CommunityPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -29,6 +30,7 @@ export function CommunityPage() {
   const [deleting, setDeleting] = useState(false);
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: session } = useSession();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -131,7 +133,7 @@ export function CommunityPage() {
     return <DrawgonLoader />;
   }
 
-  const isOwner = community.role === 'owner';
+  const isOwner = community.role === 'owner' || Boolean(session?.user?.isAdmin);
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
@@ -264,7 +266,19 @@ export function CommunityPage() {
         <ul className="space-y-3">
           {boards.map((item) => (
             <li key={item.id}>
-              <BoardCard item={item} />
+              <BoardCard
+                item={item}
+                onDelete={(id) =>
+                  setData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          boards: prev.boards.filter((b) => b.id !== id),
+                        }
+                      : null,
+                  )
+                }
+              />
             </li>
           ))}
         </ul>

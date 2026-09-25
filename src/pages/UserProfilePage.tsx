@@ -9,8 +9,11 @@ import {
   getFollowers,
   getFollowing,
 } from '@/lib/users-api';
+import { listUserBoards } from '@/lib/community-api';
 import type { FollowSummary, PublicUserProfile } from '@shared/user';
+import type { FeedItem } from '@shared/community';
 import { Avatar } from '@/components/Avatar';
+import { PinCard } from '@/features/community/PinCard';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
 import { useToast } from '@/components/toast/ToastProvider';
 
@@ -23,6 +26,7 @@ export function UserProfilePage() {
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
+  const [boards, setBoards] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [followers, setFollowers] = useState<FollowSummary[]>([]);
@@ -32,9 +36,13 @@ export function UserProfilePage() {
 
   useEffect(() => {
     if (!userId) return;
-    getPublicProfile(userId)
-      .then((p) => {
+    Promise.all([
+      getPublicProfile(userId),
+      listUserBoards(userId).catch(() => []),
+    ])
+      .then(([p, userBoards]) => {
         setProfile(p);
+        setBoards(userBoards);
         // load follower lists
         getFollowers(userId).then(setFollowers).catch(() => setFollowers([]));
         getFollowing(userId).then(setFollowingList).catch(() => setFollowingList([]));
@@ -259,6 +267,32 @@ export function UserProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ── User's Public Creations / Posts ── */}
+      <section className="mt-8">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-400">
+          Creations
+        </h2>
+        {boards.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 py-12 text-center dark:border-neutral-800">
+            <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+              No public creations yet
+            </p>
+          </div>
+        ) : (
+          <div className="columns-2 gap-4 sm:columns-3 lg:columns-4">
+            {boards.map((item) => (
+              <PinCard
+                key={item.id}
+                item={item}
+                onDelete={(id) =>
+                  setBoards((prev) => prev.filter((b) => b.id !== id))
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

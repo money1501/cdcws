@@ -43,9 +43,10 @@ export class BoardsService {
     return collabs.map((c) => c.board!).filter((b) => !!b);
   }
 
-  async findOneOwnedBy(id: string, ownerId: string): Promise<Board> {
+  async findOneOwnedBy(id: string, ownerId: string, isAdmin = false): Promise<Board> {
+    const where = isAdmin ? { id } : { id, ownerId };
     const board = await this.boardsRepository.findOne({
-      where: { id, ownerId },
+      where,
       relations: { owner: true },
     });
     if (!board) {
@@ -54,12 +55,20 @@ export class BoardsService {
     return board;
   }
 
-  async findOneAccessibleBy(id: string, userId?: string | null): Promise<EnrichedBoard> {
+  async findOneAccessibleBy(id: string, userId?: string | null, isAdmin = false): Promise<EnrichedBoard> {
     const board = await this.boardsRepository.findOne({
       where: { id },
       relations: { owner: true, communities: true },
     });
     if (!board) throw new NotFoundException(`Board ${id} not found`);
+
+    if (isAdmin) {
+      return {
+        ...board,
+        role: 'owner',
+        canEdit: board.visibility !== BoardVisibility.PUBLISHED,
+      };
+    }
 
     if (board.visibility === BoardVisibility.PUBLISHED) {
       // Published boards are permanently read-only for everyone
@@ -139,6 +148,7 @@ export class BoardsService {
     id: string,
     userId: string | null | undefined,
     dto: UpdateBoardSnapshotDto,
+    isAdmin = false,
   ): Promise<Board> {
     const board = await this.boardsRepository.findOne({ where: { id } });
     if (!board) throw new NotFoundException(`Board ${id} not found`);
@@ -149,7 +159,7 @@ export class BoardsService {
       );
     }
 
-    if (!userId || board.ownerId !== userId) {
+    if (!isAdmin && (!userId || board.ownerId !== userId)) {
       if (board.visibility === BoardVisibility.PUBLIC && board.anyoneCanEdit) {
         // Allowed by "anyone can edit" mode
       } else if (userId) {
@@ -172,21 +182,39 @@ export class BoardsService {
   }
 
   async duplicate(id: string, userId: string): Promise<Board> {
-    const board = await this.boardsRepository.findOne({ where: { id } });
+    const board = await this.boardsRepository.findOne({
+      where: { id },
+      relations: { owner: true },
+    });
     if (!board) throw new NotFoundException(`Board ${id} not found`);
 
-    if (board.ownerId !== userId && board.visibility !== BoardVisibility.PUBLIC) {
+    if (
+      board.ownerId !== userId &&
+      board.visibility !== BoardVisibility.PUBLIC &&
+      board.visibility !== BoardVisibility.PUBLISHED
+    ) {
       const collab = await this.collabsRepository.findOne({
         where: { boardId: id, userId },
       });
       if (!collab) throw new NotFoundException(`Board ${id} not found`);
     }
 
+    const isDifferentOwner = board.ownerId !== userId;
+    const originalOwnerId = isDifferentOwner
+      ? (board.originalOwnerId || board.ownerId)
+      : (board.originalOwnerId || null);
+    const originalOwnerName = isDifferentOwner
+      ? (board.originalOwnerName || board.owner?.name || 'original creator')
+      : (board.originalOwnerName || null);
+
     const copy = this.boardsRepository.create({
       ownerId: userId,
       title: `${board.title} (copy)`,
       visibility: BoardVisibility.PRIVATE,
+      anyoneCanEdit: false,
       publishedFromId: null,
+      originalOwnerId,
+      originalOwnerName,
       snapshot: board.snapshot,
       thumbnailUrl: board.thumbnailUrl,
     });
@@ -197,8 +225,9 @@ export class BoardsService {
     id: string,
     ownerId: string,
     dto: RenameBoardDto,
+    isAdmin = false,
   ): Promise<Board> {
-    const board = await this.findOneOwnedBy(id, ownerId);
+    const board = await this.findOneOwnedBy(id, ownerId, isAdmin);
     if (board.visibility === BoardVisibility.PUBLISHED) {
       throw new ForbiddenException('Published boards cannot be renamed.');
     }
@@ -214,8 +243,9 @@ export class BoardsService {
     id: string,
     ownerId: string,
     dto: UpdateBoardVisibilityDto,
+    isAdmin = false,
   ): Promise<Board> {
-    const board = await this.findOneOwnedBy(id, ownerId);
+    const board = await this.findOneOwnedBy(id, ownerId, isAdmin);
     if (board.visibility === BoardVisibility.PUBLISHED && dto.visibility !== BoardVisibility.PUBLISHED) {
       throw new ForbiddenException(
         'Published status is irreversible. Duplicate the board to create an editable copy.',
@@ -225,7 +255,7 @@ export class BoardsService {
     if (dto.visibility === BoardVisibility.PRIVATE) {
       await this.boardsRepository.delete({
         publishedFromId: board.id,
-        ownerId,
+        ownerId: board.ownerId,
       });
     }
 
@@ -240,27 +270,43 @@ export class BoardsService {
     id: string,
     ownerId: string,
     dto: PublishBoardDto,
+    isAdmin = false,
   ): Promise<Board> {
-    const board = await this.findOneOwnedBy(id, ownerId);
-    if (board.visibility === BoardVisibility.PUBLISHED) {
-      throw new BadRequestException('Board is already published.');
-    }
+    const board = await this.findOneOwnedBy(id, ownerId, isAdmin);
 
     const postTitle = dto.postTitle.trim();
     if (!postTitle) {
       throw new BadRequestException('Post title cannot be blank.');
     }
 
-    board.visibility = BoardVisibility.PUBLISHED;
-    board.postTitle = postTitle;
-    board.postDetails = dto.postDetails.trim() || null;
-    board.postTags = dto.postTags.map((tag) => tag.trim().toLowerCase()).filter(Boolean);
-    board.postMedia = dto.postMedia;
-    return this.boardsRepository.save(board);
+    // Auto-duplicate on publish:
+    // 1. Create a duplicate snapshot with visibility = PUBLISHED
+    // 2. Suppress watermark for owner auto-publish (originalOwnerName = null)
+    // 3. Keep attribution back to owner (originalOwnerId = board.originalOwnerId || ownerId)
+    // 4. Leave original board completely untouched so owner keeps full editing access
+    const duplicate = this.boardsRepository.create({
+      ownerId: board.ownerId,
+      title: board.title,
+      publishedFromId: board.id,
+      visibility: BoardVisibility.PUBLISHED,
+      anyoneCanEdit: false,
+      originalOwnerId: board.originalOwnerId || board.ownerId,
+      originalOwnerName: null,
+      snapshot: board.snapshot,
+      thumbnailUrl: board.thumbnailUrl,
+      postTitle,
+      postDetails: dto.postDetails ? dto.postDetails.trim() : null,
+      postTags: dto.postTags
+        ? dto.postTags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)
+        : [],
+      postMedia: dto.postMedia || [],
+    });
+
+    return this.boardsRepository.save(duplicate);
   }
 
-  async remove(id: string, ownerId: string): Promise<void> {
-    const board = await this.findOneOwnedBy(id, ownerId);
+  async remove(id: string, ownerId: string, isAdmin = false): Promise<void> {
+    const board = await this.findOneOwnedBy(id, ownerId, isAdmin);
     await this.boardsRepository.remove(board);
   }
 }

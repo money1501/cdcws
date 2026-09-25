@@ -149,6 +149,7 @@ export class CommunitiesService {
     slug: string,
     currentUserId: string,
     dto: UpdateCommunityDto,
+    isAdmin = false,
   ): Promise<CommunitySummary> {
     const community = await this.findBySlugOrFail(slug);
     const membership = await this.membersRepository.findOneBy({
@@ -156,8 +157,8 @@ export class CommunitiesService {
       userId: currentUserId,
     });
 
-    if (membership?.role !== CommunityRole.OWNER && community.createdBy !== currentUserId) {
-      throw new ForbiddenException('Only the community owner can edit community details.');
+    if (!isAdmin && membership?.role !== CommunityRole.OWNER && community.createdBy !== currentUserId) {
+      throw new ForbiddenException('Only the community owner or an admin can edit community details.');
     }
 
     if (dto.name !== undefined) {
@@ -218,15 +219,15 @@ export class CommunitiesService {
     return summary;
   }
 
-  async remove(slug: string, currentUserId: string): Promise<void> {
+  async remove(slug: string, currentUserId: string, isAdmin = false): Promise<void> {
     const community = await this.findBySlugOrFail(slug);
     const membership = await this.membersRepository.findOneBy({
       communityId: community.id,
       userId: currentUserId,
     });
 
-    if (membership?.role !== CommunityRole.OWNER) {
-      throw new ForbiddenException('Only the community owner can delete it.');
+    if (!isAdmin && membership?.role !== CommunityRole.OWNER && community.createdBy !== currentUserId) {
+      throw new ForbiddenException('Only the community owner or an admin can delete it.');
     }
 
     await this.communitiesRepository.remove(community);
@@ -349,15 +350,15 @@ export class CommunitiesService {
          FROM (
            SELECT b.id AS "boardId", b.community_id AS "communityId"
            FROM boards b
-           WHERE b.community_id = ANY($1) AND b.visibility = $2
+           WHERE b.community_id = ANY($1) AND b.visibility IN ($2, $3)
            UNION ALL
            SELECT bc.board_id AS "boardId", bc.community_id AS "communityId"
            FROM board_communities bc
            JOIN boards b ON b.id = bc.board_id
-           WHERE bc.community_id = ANY($1) AND b.visibility = $2
+           WHERE bc.community_id = ANY($1) AND b.visibility IN ($2, $3)
          ) posted
          GROUP BY "communityId"`,
-        [ids, BoardVisibility.PUBLIC],
+        [ids, BoardVisibility.PUBLIC, BoardVisibility.PUBLISHED],
       ) as Promise<{ communityId: string; count: string }[]>,
       this.membersRepository.find({
         where: { communityId: In(ids), userId: currentUserId },

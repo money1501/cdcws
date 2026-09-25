@@ -1,4 +1,4 @@
-import { ArrowBigUp, Bookmark, MessageSquare } from "lucide-react";
+import { ArrowBigUp, Bookmark, MessageSquare, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import type { FeedItem } from "@shared/community";
@@ -9,18 +9,35 @@ import {
   removeVote,
   setVote,
 } from "@/lib/community-api";
+import { deleteBoard } from "@/lib/boards-api";
+import { useSession } from "@/lib/auth-client";
+import { useToast } from "@/components/toast/ToastProvider";
 
 /**
  * Pinterest-flavoured feed tile: image-forward, no chrome until you hover,
- * at which point the save action and title overlay come forward.
+ * at which point the save action, delete action (if owner/admin), and title overlay come forward.
  */
-export function PinCard({ item }: { item: FeedItem }) {
+export function PinCard({
+  item,
+  onDelete,
+}: {
+  item: FeedItem;
+  onDelete?: (id: string) => void;
+}) {
   const [stats, setStats] = useState({
     score: item.score,
     myVote: item.myVote,
   });
   const [bookmarked, setBookmarked] = useState(item.bookmarked);
   const [pending, setPending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const { data: session } = useSession();
+  const toast = useToast();
+
+  const canDelete = Boolean(
+    session?.user &&
+      (session.user.id === item.ownerId || session.user.isAdmin),
+  );
 
   async function toggleBookmark(e: React.MouseEvent) {
     e.preventDefault();
@@ -54,6 +71,25 @@ export function PinCard({ item }: { item: FeedItem }) {
     }
   }
 
+  async function handleDelete(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (deleting) return;
+    if (!window.confirm("Delete this post? This cannot be undone")) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteBoard(item.id);
+      toast.success("Post deleted");
+      onDelete?.(item.id);
+    } catch {
+      toast.error("Failed to delete post");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <Link
       to={`/community/boards/${item.id}`}
@@ -80,21 +116,35 @@ export function PinCard({ item }: { item: FeedItem }) {
         {/* Hover scrim + actions */}
         <div className="pointer-events-none absolute inset-0 bg-neutral-950/0 transition group-hover:bg-neutral-950/35" />
 
-        <button
-          type="button"
-          onClick={(e) => void toggleBookmark(e)}
-          disabled={pending}
-          aria-pressed={bookmarked}
-          title={bookmarked ? "Saved" : "Save"}
-          className={`absolute right-2 top-2 inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold opacity-0 shadow-md transition group-hover:opacity-100 focus-visible:opacity-100 ${
-            bookmarked
-              ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-              : "bg-brand text-white hover:bg-brand-hover"
-          }`}
-        >
-          <Bookmark size={13} fill={bookmarked ? "currentColor" : "none"} />
-          {bookmarked ? "Saved" : "Save"}
-        </button>
+        <div className="absolute right-2 top-2 flex items-center gap-1.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+          {canDelete && (
+            <button
+              type="button"
+              onClick={(e) => void handleDelete(e)}
+              disabled={deleting}
+              title="Delete post"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow-md backdrop-blur-xs transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:bg-neutral-900/95 dark:text-neutral-200 dark:hover:bg-red-950/60 dark:hover:text-red-400"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={(e) => void toggleBookmark(e)}
+            disabled={pending}
+            aria-pressed={bookmarked}
+            title={bookmarked ? "Saved" : "Save"}
+            className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold shadow-md transition ${
+              bookmarked
+                ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+                : "bg-brand text-white hover:bg-brand-hover"
+            }`}
+          >
+            <Bookmark size={13} fill={bookmarked ? "currentColor" : "none"} />
+            {bookmarked ? "Saved" : "Save"}
+          </button>
+        </div>
 
         <button
           type="button"

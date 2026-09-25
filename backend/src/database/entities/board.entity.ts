@@ -67,6 +67,7 @@ export class Board {
   @Column({ type: 'varchar', length: 255, name: 'original_owner_name', nullable: true })
   originalOwnerName!: string | null;
 
+
   /** Community this board is posted to; null means it is unfiled. */
   @Index()
   @Column({ type: 'uuid', name: 'community_id', nullable: true })

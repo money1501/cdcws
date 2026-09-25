@@ -5,6 +5,7 @@ import {
   DefaultToolbar,
   SelectToolbarItem,
   HandToolbarItem,
+  LaserToolbarItem,
   DrawToolbarItem,
   EraserToolbarItem,
   ArrowToolbarItem,
@@ -49,6 +50,7 @@ function CustomToolbar(props: any) {
       <DefaultToolbar {...props} minItems={8} maxItems={25} maxSizePx={1200}>
         <SelectToolbarItem />
         <HandToolbarItem />
+        <LaserToolbarItem />
         <DrawToolbarItem />
         <EraserToolbarItem />
         <ArrowToolbarItem />
@@ -65,15 +67,26 @@ function CustomToolbar(props: any) {
   );
 }
 
+/** Read-only toolbar preserves presentation and navigation tools (Select, Hand, Laser) while hiding editing tools. */
+function ReadOnlyToolbar(props: any) {
+  return (
+    <DefaultToolbar {...props} minItems={3} maxItems={8} maxSizePx={300}>
+      <SelectToolbarItem />
+      <HandToolbarItem />
+      <LaserToolbarItem />
+    </DefaultToolbar>
+  );
+}
+
 /** Hides the default style panel placeholder (we use LeftStylePanel above) and places Add Document button to the left of toolbar. */
 const tldrawComponents = {
   StylePanel: LeftStylePanel,
   Toolbar: CustomToolbar,
 } as const;
 
-/** Read-only mode hides editing toolbars and panels */
+/** Read-only mode hides editing tools and style panel, but keeps navigation & presentation tools. */
 const readOnlyComponents = {
-  Toolbar: () => null,
+  Toolbar: ReadOnlyToolbar,
   StylePanel: () => null,
 } as const;
 
@@ -192,7 +205,7 @@ export function BoardCanvas({
 
       {/* Attribution watermark for non-owner duplicates */}
       {watermarkText && (
-        <div className="pointer-events-none absolute bottom-4 left-4 z-[400] flex items-center gap-1.5 rounded-full border border-neutral-200/80 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-neutral-600 shadow-md backdrop-blur-xs dark:border-neutral-800/80 dark:bg-neutral-900/90 dark:text-neutral-300">
+        <div className="pointer-events-none absolute bottom-[180px] left-3 z-[500] flex items-center gap-1.5 rounded-full border border-neutral-200/80 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-neutral-600 shadow-md backdrop-blur-xs transition-all dark:border-neutral-800/80 dark:bg-neutral-900/90 dark:text-neutral-300">
           <Copy size={12} className="text-brand" />
           <span>
             Duplicated from <strong>{watermarkText}</strong>

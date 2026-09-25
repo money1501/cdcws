@@ -14,6 +14,7 @@ export const useSession = authClient.useSession as unknown as () => {
       name: string;
       email: string;
       image?: string | null;
+      isAdmin?: boolean;
       createdAt: Date;
       updatedAt: Date;
     };

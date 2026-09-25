@@ -1,11 +1,12 @@
-import { MessageSquare, Send } from "lucide-react";
+import { MessageSquare, Send, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import type { Comment } from "@shared/community";
-import { addComment, listComments } from "@/lib/community-api";
+import { addComment, deleteComment, listComments } from "@/lib/community-api";
 import { Avatar } from "@/components/Avatar";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { useSession } from "@/lib/auth-client";
+import { useToast } from "@/components/toast/ToastProvider";
 
 export function CommentThread({ boardId }: { boardId: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -14,6 +15,7 @@ export function CommentThread({ boardId }: { boardId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const { data: session } = useSession();
   const { requireAuth } = useAuthModal();
+  const toast = useToast();
 
   useEffect(() => {
     listComments(boardId)
@@ -31,6 +33,17 @@ export function CommentThread({ boardId }: { boardId: string }) {
       setBody("");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    if (!window.confirm("Delete this comment? This cannot be undone")) return;
+    try {
+      await deleteComment(boardId, commentId);
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      toast.success("Comment deleted");
+    } catch {
+      toast.error("Failed to delete comment");
     }
   }
 
@@ -133,19 +146,33 @@ export function CommentThread({ boardId }: { boardId: string }) {
                 <Avatar name={comment.user.name} size="md" />
               </Link>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <Link
-                    to={`/users/${comment.userId}`}
-                    className="text-sm font-semibold text-neutral-900 hover:text-brand dark:text-neutral-100"
-                  >
-                    {comment.user.name}
-                  </Link>
-                  <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                    {new Date(comment.createdAt).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </span>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <Link
+                      to={`/users/${comment.userId}`}
+                      className="text-sm font-semibold text-neutral-900 hover:text-brand dark:text-neutral-100"
+                    >
+                      {comment.user.name}
+                    </Link>
+                    <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                      {new Date(comment.createdAt).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </span>
+                  </div>
+                  {session?.user &&
+                    (session.user.id === comment.userId ||
+                      session.user.isAdmin) && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteComment(comment.id)}
+                        title="Delete comment"
+                        className="rounded-full p-1 text-neutral-400 transition hover:bg-red-50 hover:text-red-600 dark:text-neutral-500 dark:hover:bg-red-950/60 dark:hover:text-red-400"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                 </div>
                 <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-neutral-700 dark:text-neutral-200">
                   {comment.body}

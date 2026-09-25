@@ -24,7 +24,8 @@ export class BoardsController {
   @AllowAnonymous()
   @Get(':id')
   findOne(@Param('id') id: string, @Session() session?: UserSession) {
-    return this.boardsService.findOneAccessibleBy(id, session?.user?.id ?? null);
+    const isAdmin = Boolean((session?.user as any)?.isAdmin);
+    return this.boardsService.findOneAccessibleBy(id, session?.user?.id ?? null, isAdmin);
   }
 
   @Post()
@@ -45,7 +46,8 @@ export class BoardsController {
     @Body() dto: UpdateBoardSnapshotDto,
     @Session() session?: UserSession,
   ) {
-    return this.boardsService.updateSnapshot(id, session?.user?.id ?? null, dto);
+    const isAdmin = Boolean((session?.user as any)?.isAdmin);
+    return this.boardsService.updateSnapshot(id, session?.user?.id ?? null, dto, isAdmin);
   }
 
   @Patch(':id/title')
@@ -54,7 +56,8 @@ export class BoardsController {
     @Body() dto: RenameBoardDto,
     @Session() session: UserSession,
   ) {
-    return this.boardsService.rename(id, session.user.id, dto);
+    const isAdmin = Boolean((session.user as any)?.isAdmin);
+    return this.boardsService.rename(id, session.user.id, dto, isAdmin);
   }
 
   @Patch(':id/visibility')
@@ -63,7 +66,8 @@ export class BoardsController {
     @Body() dto: UpdateBoardVisibilityDto,
     @Session() session: UserSession,
   ) {
-    return this.boardsService.updateVisibility(id, session.user.id, dto);
+    const isAdmin = Boolean((session.user as any)?.isAdmin);
+    return this.boardsService.updateVisibility(id, session.user.id, dto, isAdmin);
   }
 
   @Post(':id/publish')
@@ -72,11 +76,13 @@ export class BoardsController {
     @Body() dto: PublishBoardDto,
     @Session() session: UserSession,
   ) {
-    return this.boardsService.publish(id, session.user.id, dto);
+    const isAdmin = Boolean((session.user as any)?.isAdmin);
+    return this.boardsService.publish(id, session.user.id, dto, isAdmin);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string, @Session() session: UserSession) {
-    return this.boardsService.remove(id, session.user.id);
+    const isAdmin = Boolean((session.user as any)?.isAdmin);
+    return this.boardsService.remove(id, session.user.id, isAdmin);
   }
 }

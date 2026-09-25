@@ -6,6 +6,7 @@ import {
   Grid3x3,
   Link2,
   Loader2,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
@@ -14,7 +15,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { BoardSummary } from '@shared/board';
 import type { FeedItem } from '@shared/community';
 import type { FollowSummary, UserProfile } from '@shared/user';
-import { listBoards } from '@/lib/boards-api';
+import { deleteBoard, listBoards } from '@/lib/boards-api';
 import { listSavedBoards } from '@/lib/community-api';
 import { useSession } from '@/lib/auth-client';
 import { getMyProfile, updateMyProfile, getFollowers, getFollowing } from '@/lib/users-api';
@@ -121,6 +122,20 @@ export function ProfilePage() {
       setTimeout(() => setCopied(false), 2000);
       toast.success('Profile link copied!');
     });
+  }
+
+  async function handleDeleteBoard(e: React.MouseEvent, boardId: string, title: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
+
+    try {
+      await deleteBoard(boardId);
+      setBoards((prev) => prev.filter((b) => b.id !== boardId));
+      toast.success('Board deleted');
+    } catch {
+      toast.error('Could not delete board');
+    }
   }
 
   const tabClass = (t: Tab) =>
@@ -393,10 +408,10 @@ export function ProfilePage() {
         ) : (
           <ul className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {boards.map((board) => (
-              <li key={board.id}>
+              <li key={board.id} className="relative group">
                 <Link
                   to={`/boards/${board.id}`}
-                  className="group block overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+                  className="group/card block overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
                 >
                   {board.thumbnailUrl ? (
                     <img
@@ -407,8 +422,8 @@ export function ProfilePage() {
                   ) : (
                     <div className="h-28 bg-gradient-to-br from-violet-500/10 to-cyan-500/10" />
                   )}
-                  <div className="flex items-center justify-between gap-2 p-3">
-                    <p className="truncate text-sm font-medium text-neutral-900 group-hover:text-brand dark:text-neutral-50">
+                  <div className="flex items-center justify-between gap-2 p-3 pr-8">
+                    <p className="truncate text-sm font-medium text-neutral-900 group-hover/card:text-brand dark:text-neutral-50">
                       {board.title}
                     </p>
                     {board.visibility === 'public' && (
@@ -418,6 +433,14 @@ export function ProfilePage() {
                     )}
                   </div>
                 </Link>
+                <button
+                  type="button"
+                  onClick={(e) => void handleDeleteBoard(e, board.id, board.title)}
+                  title="Delete board"
+                  className="absolute right-2 bottom-2.5 inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 opacity-80 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 sm:opacity-0 dark:text-neutral-500 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+                >
+                  <Trash2 size={14} />
+                </button>
               </li>
             ))}
           </ul>
@@ -431,7 +454,13 @@ export function ProfilePage() {
         ) : (
           <div className="mt-6 columns-2 gap-4 sm:columns-3 lg:columns-4">
             {saved.map((item) => (
-              <PinCard key={item.id} item={item} />
+              <PinCard
+                key={item.id}
+                item={item}
+                onDelete={(id) =>
+                  setSaved((prev) => prev.filter((b) => b.id !== id))
+                }
+              />
             ))}
           </div>
         ))}
