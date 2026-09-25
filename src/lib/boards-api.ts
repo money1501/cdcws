@@ -119,3 +119,8 @@ export async function joinBoardViaToken(token: string): Promise<{ boardId: strin
   const res = await apiClient.post<{ boardId: string }>(`/boards/join/${token}`);
   return res.data;
 }
+
+export async function duplicateBoard(id: string): Promise<Board> {
+  const res = await apiClient.post<Board>(`/boards/${id}/duplicate`);
+  return res.data;
+}

@@ -95,6 +95,28 @@ export class BoardsService {
     return this.boardsRepository.save(board);
   }
 
+  async duplicate(id: string, userId: string): Promise<Board> {
+    const board = await this.boardsRepository.findOne({ where: { id } });
+    if (!board) throw new NotFoundException(`Board ${id} not found`);
+
+    if (board.ownerId !== userId && board.visibility !== BoardVisibility.PUBLIC) {
+      const collab = await this.collabsRepository.findOne({
+        where: { boardId: id, userId },
+      });
+      if (!collab) throw new NotFoundException(`Board ${id} not found`);
+    }
+
+    const copy = this.boardsRepository.create({
+      ownerId: userId,
+      title: `${board.title} (copy)`,
+      visibility: BoardVisibility.PRIVATE,
+      publishedFromId: null,
+      snapshot: board.snapshot,
+      thumbnailUrl: board.thumbnailUrl,
+    });
+    return this.boardsRepository.save(copy);
+  }
+
   async rename(
     id: string,
     ownerId: string,
@@ -131,6 +153,11 @@ export class BoardsService {
     dto: PublishBoardDto,
   ): Promise<Board> {
     const board = await this.findOneOwnedBy(id, ownerId);
+    if (board.visibility !== BoardVisibility.PUBLIC) {
+      throw new BadRequestException(
+        'Cannot publish a private board. Make it public first.',
+      );
+    }
     const postTitle = dto.postTitle.trim();
     if (!postTitle) {
       throw new BadRequestException('Post title cannot be blank.');

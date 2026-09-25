@@ -15,6 +15,8 @@ interface SpreadsheetBlockProps {
   };
   onChange: (newContent: string, newMeta?: { rows: number; cols: number }) => void;
   readOnly?: boolean;
+  scale?: number;
+  zoomLevel?: number;
 }
 
 const DEFAULT_COLS = 5; // A, B, C, D, E
@@ -48,6 +50,8 @@ export function SpreadsheetBlock({
   meta,
   onChange,
   readOnly = false,
+  scale = 1,
+  zoomLevel = 1,
 }: SpreadsheetBlockProps) {
   const [activeCell, setActiveCell] = useState<string>('A1');
   const [editingCell, setEditingCell] = useState<string | null>(null);
@@ -282,10 +286,17 @@ export function SpreadsheetBlock({
         className="flex-1 overflow-auto bg-neutral-100 dark:bg-neutral-900"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <table className="border-collapse text-xs table-fixed">
+        <table className="border-collapse table-fixed">
           <thead>
             <tr className="sticky top-0 z-10 bg-neutral-200 dark:bg-neutral-800">
-              <th className="w-10 border border-neutral-300 bg-neutral-200 p-1 text-center font-mono text-[10px] text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
+              <th
+                style={{
+                  width: `${Math.max(28, Math.round(36 * scale))}px`,
+                  fontSize: `${Math.max(9, Math.round(10 * scale))}px`,
+                  height: `${Math.max(22, Math.round(26 * scale))}px`,
+                }}
+                className="border border-neutral-300 bg-neutral-200 p-1 text-center font-mono text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
+              >
                 #
               </th>
               {Array.from({ length: numCols }).map((_, c) => {
@@ -293,7 +304,13 @@ export function SpreadsheetBlock({
                 return (
                   <th
                     key={colLabel}
-                    className="w-28 min-w-[100px] border border-neutral-300 bg-neutral-200 p-1 text-center font-mono text-[11px] font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+                    style={{
+                      width: `${Math.max(60, Math.round(96 * scale))}px`,
+                      minWidth: `${Math.max(50, Math.round(75 * scale))}px`,
+                      fontSize: `${Math.max(9, Math.round(11 * scale))}px`,
+                      height: `${Math.max(22, Math.round(26 * scale))}px`,
+                    }}
+                    className="border border-neutral-300 bg-neutral-200 p-1 text-center font-mono font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
                   >
                     {colLabel}
                   </th>
@@ -306,7 +323,14 @@ export function SpreadsheetBlock({
               const rowNum = r + 1;
               return (
                 <tr key={rowNum} className="hover:bg-neutral-50/50 dark:hover:bg-neutral-800/50">
-                  <td className="sticky left-0 border border-neutral-300 bg-neutral-200 p-1 text-center font-mono text-[10px] text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
+                  <td
+                    style={{
+                      width: `${Math.max(28, Math.round(36 * scale))}px`,
+                      fontSize: `${Math.max(9, Math.round(10 * scale))}px`,
+                      height: `${Math.max(22, Math.round(26 * scale))}px`,
+                    }}
+                    className="sticky left-0 border border-neutral-300 bg-neutral-200 p-1 text-center font-mono text-neutral-500 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
+                  >
                     {rowNum}
                   </td>
                   {Array.from({ length: numCols }).map((_, c) => {
@@ -326,7 +350,12 @@ export function SpreadsheetBlock({
                         onDoubleClick={() => {
                           if (!readOnly) setEditingCell(cellKey);
                         }}
-                        className={`h-7 border border-neutral-300 bg-white px-2 py-1 text-left align-middle text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 ${
+                        style={{
+                          width: `${Math.max(60, Math.round(96 * scale))}px`,
+                          height: `${Math.max(22, Math.round(26 * scale))}px`,
+                          fontSize: `${Math.max(10, Math.round(12 * scale))}px`,
+                        }}
+                        className={`border border-neutral-300 bg-white px-1.5 py-0.5 text-left align-middle text-neutral-900 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 ${
                           isSelected
                             ? 'ring-2 ring-inset ring-brand'
                             : ''

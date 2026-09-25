@@ -20,12 +20,16 @@ interface TextEditorBlockProps {
   content: string;
   onChange: (newContent: string) => void;
   readOnly?: boolean;
+  scale?: number;
+  zoomLevel?: number;
 }
 
 export function TextEditorBlock({
   content,
   onChange,
   readOnly = false,
+  scale = 1,
+  zoomLevel = 1,
 }: TextEditorBlockProps) {
   const [isPreview, setIsPreview] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -185,7 +189,13 @@ export function TextEditorBlock({
         onPointerDown={(e) => e.stopPropagation()}
       >
         {isPreview || readOnly ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap font-sans">
+          <div
+            style={{
+              fontSize: `${Math.round(13 * scale)}px`,
+              lineHeight: 1.6,
+            }}
+            className="prose prose-sm dark:prose-invert max-w-none leading-relaxed text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap font-sans"
+          >
             {content || <span className="italic text-neutral-400">Empty document.</span>}
           </div>
         ) : (
@@ -194,7 +204,11 @@ export function TextEditorBlock({
             value={content}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Type your notes, ideas, or markdown here..."
-            className="h-full w-full resize-none border-none bg-transparent font-sans text-xs leading-relaxed text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+            style={{
+              fontSize: `${Math.round(13 * scale)}px`,
+              lineHeight: 1.6,
+            }}
+            className="h-full w-full resize-none border-none bg-transparent font-sans leading-relaxed text-neutral-900 outline-none placeholder:text-neutral-400 dark:text-neutral-100 dark:placeholder:text-neutral-500"
             spellCheck={false}
           />
         )}

@@ -1,7 +1,7 @@
-import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { Copy, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createBoard, deleteBoard, listBoards, listSharedBoards } from '@/lib/boards-api';
+import { createBoard, deleteBoard, duplicateBoard, listBoards, listSharedBoards } from '@/lib/boards-api';
 import { Avatar } from '@/components/Avatar';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
 import { useToast } from '@/components/toast/ToastProvider';
@@ -33,6 +33,18 @@ export function DashboardPage() {
       toast.error('Could not create board. Please try again.');
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleDuplicateBoard(e: React.MouseEvent, boardId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const copy = await duplicateBoard(boardId);
+      toast.success('Copy created! Opening whiteboard...');
+      navigate(`/boards/${copy.id}`);
+    } catch {
+      toast.error('Could not create copy of board.');
     }
   }
 
@@ -83,7 +95,7 @@ export function DashboardPage() {
                 className="group/card flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
               >
                 <Avatar name={board.title} />
-                <div className="min-w-0 flex-1 pr-7">
+                <div className="min-w-0 flex-1 pr-16">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate font-medium text-neutral-900 group-hover/card:text-brand dark:text-neutral-50">
                       {board.title}
@@ -99,6 +111,14 @@ export function DashboardPage() {
                   </p>
                 </div>
               </Link>
+              <button
+                type="button"
+                onClick={(e) => void handleDuplicateBoard(e, board.id)}
+                title="Make a copy"
+                className="absolute right-12 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 opacity-80 transition group-hover:opacity-100 hover:bg-neutral-100 hover:text-neutral-700 sm:opacity-0 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+              >
+                <Copy size={15} />
+              </button>
               <button
                 type="button"
                 onClick={(e) => void handleDeleteBoard(e, board.id, board.title)}
@@ -118,15 +138,15 @@ export function DashboardPage() {
             </h2>
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
               {sharedBoards.map((board) => (
-                <li key={board.id}>
+                <li key={board.id} className="relative group">
                   <Link
                     to={`/boards/${board.id}`}
-                    className="group flex items-start gap-3 rounded-xl border border-brand/20 bg-brand/5 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md dark:bg-brand/10"
+                    className="group/card flex items-start gap-3 rounded-xl border border-brand/20 bg-brand/5 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md dark:bg-brand/10"
                   >
                     <Avatar name={board.title} />
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 pr-9">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-medium text-neutral-900 group-hover:text-brand dark:text-neutral-50">
+                        <p className="truncate font-medium text-neutral-900 group-hover/card:text-brand dark:text-neutral-50">
                           {board.title}
                         </p>
                       </div>
@@ -135,6 +155,14 @@ export function DashboardPage() {
                       </p>
                     </div>
                   </Link>
+                  <button
+                    type="button"
+                    onClick={(e) => void handleDuplicateBoard(e, board.id)}
+                    title="Make a copy"
+                    className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 opacity-80 transition group-hover:opacity-100 hover:bg-brand/15 hover:text-brand sm:opacity-0 dark:text-neutral-500 dark:hover:bg-brand/20 dark:hover:text-brand"
+                  >
+                    <Copy size={15} />
+                  </button>
                 </li>
               ))}
             </ul>

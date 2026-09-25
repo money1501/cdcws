@@ -33,6 +33,11 @@ export class BoardsController {
     return this.boardsService.create(session.user.id, dto);
   }
 
+  @Post(':id/duplicate')
+  duplicate(@Param('id') id: string, @Session() session: UserSession) {
+    return this.boardsService.duplicate(id, session.user.id);
+  }
+
   @Patch(':id/snapshot')
   updateSnapshot(
     @Param('id') id: string,

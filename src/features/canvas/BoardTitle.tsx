@@ -6,10 +6,11 @@ interface BoardTitleProps {
   boardId: string;
   title: string;
   onRenamed: (title: string) => void;
+  canRename?: boolean;
 }
 
 /** Click-to-edit board name. Enter commits, Escape reverts, blur commits. */
-export function BoardTitle({ boardId, title, onRenamed }: BoardTitleProps) {
+export function BoardTitle({ boardId, title, onRenamed, canRename = true }: BoardTitleProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(title);
   const [saving, setSaving] = useState(false);
@@ -62,6 +63,17 @@ export function BoardTitle({ boardId, title, onRenamed }: BoardTitleProps) {
         aria-label="Board name"
         className="w-56 rounded-md border border-brand bg-white px-2 py-1 text-sm font-medium text-neutral-900 focus:outline-none dark:bg-neutral-900 dark:text-neutral-50"
       />
+    );
+  }
+
+  if (!canRename) {
+    return (
+      <span
+        title={title}
+        className="inline-flex max-w-[16rem] items-center rounded-md px-2 py-1 text-sm font-semibold text-neutral-900 dark:text-neutral-50 truncate"
+      >
+        {title}
+      </span>
     );
   }
 

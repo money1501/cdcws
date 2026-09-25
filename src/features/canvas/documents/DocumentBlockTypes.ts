@@ -9,6 +9,10 @@ export interface DocumentShapeProps {
   title: string;
   content: string;
   meta: Record<string, any>;
+  /** Whether the block is currently collapsed to its header bar only. */
+  collapsed: boolean;
+  /** The h value before collapsing, restored on expand. */
+  expandedH: number;
 }
 
 export type IDocumentShape = TLBaseShape<'document_block', DocumentShapeProps>;

@@ -14,6 +14,8 @@ interface CodeEditorBlockProps {
   onChange: (newContent: string) => void;
   onLanguageChange?: (newLang: string) => void;
   readOnly?: boolean;
+  scale?: number;
+  zoomLevel?: number;
 }
 
 const SUPPORTED_LANGUAGES = [
@@ -35,6 +37,8 @@ export function CodeEditorBlock({
   onChange,
   onLanguageChange,
   readOnly = false,
+  scale = 1,
+  zoomLevel = 1,
 }: CodeEditorBlockProps) {
   const [activeTab, setActiveTab] = useState<'editor' | 'output'>('editor');
   const [outputLogs, setOutputLogs] = useState<string[]>([]);
@@ -205,7 +209,13 @@ export function CodeEditorBlock({
         {activeTab === 'editor' ? (
           <div className="flex h-full w-full overflow-auto">
             {/* Line numbers gutter */}
-            <div className="select-none shrink-0 border-r border-neutral-800/80 bg-[#16181d] px-2 py-3 text-right text-[11px] text-neutral-600 font-mono leading-relaxed">
+            <div
+              style={{
+                fontSize: `${Math.max(9, Math.round(11 * scale))}px`,
+                lineHeight: `${Math.round(12 * scale * 1.6)}px`,
+              }}
+              className="select-none shrink-0 border-r border-neutral-800/80 bg-[#16181d] px-2 py-3 text-right text-neutral-600 font-mono"
+            >
               {lines.map((_, i) => (
                 <div key={i}>{i + 1}</div>
               ))}
@@ -220,7 +230,11 @@ export function CodeEditorBlock({
               readOnly={readOnly}
               placeholder="// Write code here..."
               spellCheck={false}
-              className="flex-1 resize-none border-none bg-transparent p-3 font-mono text-[12px] leading-relaxed text-emerald-300 outline-none placeholder:text-neutral-600 overflow-auto"
+              style={{
+                fontSize: `${Math.round(12 * scale)}px`,
+                lineHeight: `${Math.round(12 * scale * 1.6)}px`,
+              }}
+              className="flex-1 resize-none border-none bg-transparent p-3 font-mono text-emerald-300 outline-none placeholder:text-neutral-600 overflow-auto"
             />
           </div>
         ) : (

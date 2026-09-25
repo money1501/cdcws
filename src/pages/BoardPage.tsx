@@ -1,6 +1,7 @@
-import {
+﻿import {
   ArrowLeft,
   Check,
+  Copy,
   FolderLock,
   Globe,
   Link as LinkIcon,
@@ -26,6 +27,7 @@ import {
   removeCollaborator,
   generateInviteLink,
   createBoard,
+  duplicateBoard,
 } from "@/lib/boards-api";
 import { listCommunities, setBoardCommunities } from "@/lib/communities-api";
 import { BoardCanvas } from "@/features/canvas/BoardCanvas";
@@ -85,6 +87,7 @@ export function BoardPage() {
     details: "",
     tags: "",
   });
+  const [tagInput, setTagInput] = useState("");
   const [postMedia, setPostMedia] = useState<BoardPostMedia[]>([]);
   const [availablePrivateFiles, setAvailablePrivateFiles] = useState<StoredPersonalFile[]>([]);
   const [selectedPrivateFileIds, setSelectedPrivateFileIds] = useState<string[]>([]);
@@ -98,6 +101,7 @@ export function BoardPage() {
   const [inviting, setInviting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [collaborators, setCollaborators] = useState<BoardCollaborator[]>([]);
+  const [duplicating, setDuplicating] = useState(false);
 
   const [editor, setEditor] = useState<Editor | null>(null);
   const navigate = useNavigate();
@@ -106,6 +110,7 @@ export function BoardPage() {
   const toast = useToast();
   const { toggleOpen: toggleFilesOpen, fileCount, isOpen: filesSidebarOpen } = usePersonalFilesStore();
 
+  const isOwner = session?.user?.id === board?.ownerId || board?.id === "local";
   const isLocalMode = !board || board.id === "local" || !session?.user;
   const isUpgradingRef = useRef(false);
 
@@ -198,6 +203,45 @@ export function BoardPage() {
     );
   }
 
+  const currentTags = publishForm.tags
+    ? publishForm.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  function addTag(rawTag: string) {
+    const cleanTag = rawTag.trim().toLowerCase().replace(/^#/, "");
+    if (!cleanTag) return;
+    if (!currentTags.includes(cleanTag)) {
+      setPublishForm((prev) => ({
+        ...prev,
+        tags: [...currentTags, cleanTag].join(", "),
+      }));
+    }
+    setTagInput("");
+  }
+
+  function removeTag(tagToRemove: string) {
+    const updated = currentTags.filter((t) => t !== tagToRemove.toLowerCase());
+    setPublishForm((prev) => ({
+      ...prev,
+      tags: updated.join(", "),
+    }));
+  }
+
+  function toggleTag(tag: string) {
+    if (currentTags.includes(tag.toLowerCase())) {
+      removeTag(tag);
+    } else {
+      addTag(tag);
+    }
+  }
+
+  function handleTagInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(tagInput);
+    }
+  }
+
   async function doOpenPublishDialog() {
     if (!board) return;
     setPublishForm({
@@ -205,6 +249,7 @@ export function BoardPage() {
       details: "",
       tags: "",
     });
+    setTagInput("");
     setPostMedia([]);
     setSelectedCommunities([]);
     setCommunitySearch("");
@@ -218,14 +263,18 @@ export function BoardPage() {
   }
 
   function handlePublishClick() {
+    if (!isOwner) {
+      toast.error("Only the board owner can post this board.");
+      return;
+    }
     requireAuth(
       () => {
         void doOpenPublishDialog();
       },
       {
         reason: "publish",
-        title: "Log in to publish board",
-        description: "Publish your board to the community feed and showcase your work.",
+        title: "Log in to post board",
+        description: "Post your board to the community feed and showcase your work.",
       },
     );
   }
@@ -233,6 +282,7 @@ export function BoardPage() {
   async function handlePublish() {
     if (
       !board ||
+      board.visibility !== "public" ||
       publishing ||
       selectedCommunities.length === 0 ||
       !publishForm.postTitle.trim()
@@ -273,15 +323,19 @@ export function BoardPage() {
         .map((community) => community.slug);
       await setBoardCommunities(publishedPost.id, selectedSlugs);
       setPublishOpen(false);
-      toast.success("Board published to community!");
+      toast.success("Board posted to community!");
     } catch {
-      toast.error("Failed to publish. Please try again.");
+      toast.error("Failed to post board. Please try again.");
     } finally {
       setPublishing(false);
     }
   }
 
   function handleVisibilityClick() {
+    if (!isOwner) {
+      toast.error("Only the board owner can change visibility.");
+      return;
+    }
     requireAuth(
       () => {
         setVisibilityConfirmOpen(true);
@@ -295,7 +349,7 @@ export function BoardPage() {
   }
 
   async function confirmVisibilityChange() {
-    if (!board) return;
+    if (!board || !isOwner) return;
     setVisibilityConfirmOpen(false);
     try {
       const updated = await updateBoardVisibility(
@@ -366,7 +420,7 @@ export function BoardPage() {
   }
 
   async function handleInvite() {
-    if (!board || inviting || !inviteUsername.trim()) return;
+    if (!board || !isOwner || inviting || !inviteUsername.trim()) return;
     setInviting(true);
     try {
       await inviteCollaborator(board.id, inviteUsername.trim(), inviteRole);
@@ -382,7 +436,7 @@ export function BoardPage() {
   }
 
   async function handleCopyInviteLink() {
-    if (!board) return;
+    if (!board || !isOwner) return;
     try {
       const { token } = await generateInviteLink(board.id, inviteRole);
       const url = `${window.location.origin}/boards/join/${token}`;
@@ -397,6 +451,10 @@ export function BoardPage() {
 
   async function handleRemoveCollaborator(userId: string) {
     if (!board) return;
+    if (!isOwner && userId !== session?.user?.id) {
+      toast.error("Only the board owner can remove collaborators.");
+      return;
+    }
     try {
       await removeCollaborator(board.id, userId);
       setCollaborators((curr) => curr.filter((c) => c.userId !== userId));
@@ -406,7 +464,28 @@ export function BoardPage() {
     }
   }
 
-  const isOwner = session?.user?.id === board?.ownerId || board?.id === "local";
+  async function handleDuplicate() {
+    if (!session?.user) {
+      openAuthModal({
+        reason: "general",
+        title: "Log in to duplicate board",
+        description: "Sign in to create your own copy of this whiteboard.",
+      });
+      return;
+    }
+    if (!board || board.id === "local") return;
+
+    setDuplicating(true);
+    try {
+      const copy = await duplicateBoard(board.id);
+      toast.success("Board copied! Opening your copy...");
+      navigate(`/boards/${copy.id}`);
+    } catch {
+      toast.error("Could not copy board. Please try again.");
+    } finally {
+      setDuplicating(false);
+    }
+  }
 
   if (error) {
     return (
@@ -459,33 +538,51 @@ export function BoardPage() {
             boardId={board.id}
             title={board.title}
             onRenamed={(title) => setBoard({ ...board, title })}
+            canRename={isOwner}
           />
 
           <span className="text-neutral-300 dark:text-neutral-700">|</span>
 
-          {/* Publish Action Button */}
-          <button
-            type="button"
-            onClick={handlePublishClick}
-            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-hover shadow-xs"
-          >
-            <Globe size={13} />
-            Publish
-          </button>
-
-          {/* Visibility Toggle Button */}
-          <button
-            type="button"
-            onClick={handleVisibilityClick}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-          >
-            {board.visibility === "public" ? (
+          {/* Post Action Button (Owner only) */}
+          {isOwner && (
+            <button
+              type="button"
+              onClick={handlePublishClick}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-hover shadow-xs"
+            >
               <Globe size={13} />
-            ) : (
-              <Lock size={13} />
-            )}
-            {board.visibility === "public" ? "Public" : "Private"}
-          </button>
+              Post
+            </button>
+          )}
+
+          {/* Visibility Toggle Button (Owner only; Collaborators see a read-only badge) */}
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={handleVisibilityClick}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+              title="Change board visibility"
+            >
+              {board.visibility === "public" ? (
+                <Globe size={13} />
+              ) : (
+                <Lock size={13} />
+              )}
+              {board.visibility === "public" ? "Public" : "Private"}
+            </button>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+              title="Visibility is managed by the board owner"
+            >
+              {board.visibility === "public" ? (
+                <Globe size={13} />
+              ) : (
+                <Lock size={13} />
+              )}
+              {board.visibility === "public" ? "Public" : "Private"}
+            </span>
+          )}
 
           {/* Collaborators Button */}
           <button
@@ -501,6 +598,20 @@ export function BoardPage() {
               </span>
             )}
           </button>
+
+          {/* Make a Copy Button */}
+          {board.id !== "local" && (
+            <button
+              type="button"
+              onClick={() => void handleDuplicate()}
+              disabled={duplicating}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50 disabled:opacity-50"
+              title="Create your own copy of this board"
+            >
+              <Copy size={13} />
+              {duplicating ? "Copying..." : "Make a copy"}
+            </button>
+          )}
 
           {/* Personal Files Sidebar Button */}
           <button
@@ -618,7 +729,7 @@ export function BoardPage() {
             <div className="mb-0 flex items-center justify-between border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.18em] text-brand">
-                  Publish board
+                  Post board
                 </p>
                 <h2 className="mt-1 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
                   Create a new post
@@ -676,24 +787,70 @@ export function BoardPage() {
                     <span className="mb-1.5 block text-sm font-medium text-neutral-700 dark:text-neutral-200">
                       Tags
                     </span>
-                    <div className="flex flex-wrap gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 py-2 dark:border-neutral-700 dark:bg-neutral-900">
-                      {["branding", "storyboard", "moodboard", "concept"].map(
-                        (tag) => (
-                          <button
+
+                    {/* Active tag chips */}
+                    {currentTags.length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-1.5">
+                        {currentTags.map((tag) => (
+                          <span
                             key={tag}
-                            type="button"
-                            onClick={() =>
-                              setPublishForm((prev) => ({
-                                ...prev,
-                                tags: prev.tags ? `${prev.tags}, ${tag}` : tag,
-                              }))
-                            }
-                            className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-xs font-medium text-neutral-700 transition hover:border-brand hover:text-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                            className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand dark:bg-brand/20"
                           >
-                            <Plus size={12} />
-                            {tag}
-                          </button>
-                        ),
+                            #{tag}
+                            <button
+                              type="button"
+                              onClick={() => removeTag(tag)}
+                              aria-label={`Remove tag ${tag}`}
+                              className="ml-0.5 rounded-full p-0.5 hover:bg-brand/20 dark:hover:bg-brand/30"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Custom tag input */}
+                    <div className="mb-2 flex gap-2">
+                      <input
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleTagInputKeyDown}
+                        placeholder="Add a tag and press Enter..."
+                        className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => addTag(tagInput)}
+                        disabled={!tagInput.trim()}
+                        className="inline-flex items-center gap-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 transition hover:border-brand hover:text-brand disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                      >
+                        <Plus size={14} />
+                        Add
+                      </button>
+                    </div>
+
+                    {/* Suggested tags */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {["branding", "storyboard", "moodboard", "concept", "ui", "ux"].map(
+                        (tag) => {
+                          const active = currentTags.includes(tag);
+                          return (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => toggleTag(tag)}
+                              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                                active
+                                  ? "border-brand bg-brand/10 text-brand dark:bg-brand/20"
+                                  : "border-neutral-200 bg-white text-neutral-700 hover:border-brand hover:text-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                              }`}
+                            >
+                              {active ? <Check size={11} /> : <Plus size={11} />}
+                              {tag}
+                            </button>
+                          );
+                        },
                       )}
                     </div>
                   </div>
@@ -801,11 +958,11 @@ export function BoardPage() {
               </button>
               <button
                 type="button"
-                disabled={publishing || selectedCommunities.length === 0 || !publishForm.postTitle.trim()}
+                disabled={publishing || selectedCommunities.length === 0 || !publishForm.postTitle.trim() || board.visibility !== "public"}
                 onClick={() => void handlePublish()}
-                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:opacity-50"
+                className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {publishing ? "Publishing…" : "Publish Now"}
+                {publishing ? "Posting\u2026" : "Post Now"}
               </button>
             </div>
           </div>
@@ -854,8 +1011,13 @@ export function BoardPage() {
                   Board collaborators
                 </p>
                 <h2 className="mt-0.5 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  Invite to &ldquo;{board.title}&rdquo;
+                  {isOwner ? `Invite to “${board.title}”` : `Collaborators on “${board.title}”`}
                 </h2>
+                {!isOwner && (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Only the board owner can invite or remove collaborators.
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -866,95 +1028,100 @@ export function BoardPage() {
               </button>
             </div>
 
-            {/* Role picker */}
-            <div className="mb-3 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setInviteRole("editor")}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                  inviteRole === "editor"
-                    ? "border-brand bg-brand/5 text-neutral-900 dark:border-brand dark:bg-brand/10 dark:text-neutral-50"
-                    : "border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:text-neutral-300"
-                }`}
-              >
-                <p className="font-medium">Editor</p>
-                <p className="mt-0.5 text-xs text-neutral-500">Can draw and edit content</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setInviteRole("viewer")}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                  inviteRole === "viewer"
-                    ? "border-brand bg-brand/5 text-neutral-900 dark:border-brand dark:bg-brand/10 dark:text-neutral-50"
-                    : "border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:text-neutral-300"
-                }`}
-              >
-                <p className="font-medium">Viewer</p>
-                <p className="mt-0.5 text-xs text-neutral-500">Can only view the board</p>
-              </button>
-            </div>
+            {/* Owner-only Invite Controls */}
+            {isOwner && (
+              <>
+                {/* Role picker */}
+                <div className="mb-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInviteRole("editor")}
+                    className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                      inviteRole === "editor"
+                        ? "border-brand bg-brand/5 text-neutral-900 dark:border-brand dark:bg-brand/10 dark:text-neutral-50"
+                        : "border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:text-neutral-300"
+                    }`}
+                  >
+                    <p className="font-medium">Editor</p>
+                    <p className="mt-0.5 text-xs text-neutral-500">Can draw and edit content</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInviteRole("viewer")}
+                    className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                      inviteRole === "viewer"
+                        ? "border-brand bg-brand/5 text-neutral-900 dark:border-brand dark:bg-brand/10 dark:text-neutral-50"
+                        : "border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:text-neutral-300"
+                    }`}
+                  >
+                    <p className="font-medium">Viewer</p>
+                    <p className="mt-0.5 text-xs text-neutral-500">Can only view the board</p>
+                  </button>
+                </div>
 
-            {/* Invite link section */}
-            <div className="mb-4 flex items-center justify-between rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3.5 py-2.5 dark:border-neutral-700 dark:bg-neutral-900/60">
-              <div className="min-w-0 pr-2">
-                <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                  Invite via link
-                </p>
-                <p className="truncate text-[11px] text-neutral-500">
-                  Anyone with this link joins as {inviteRole}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handleCopyInviteLink()}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  linkCopied
-                    ? "bg-emerald-600 text-white"
-                    : "bg-neutral-200 text-neutral-800 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
-                }`}
-              >
-                {linkCopied ? (
-                  <>
-                    <Check size={12} />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon size={12} />
-                    <span>Copy link</span>
-                  </>
-                )}
-              </button>
-            </div>
+                {/* Invite link section */}
+                <div className="mb-4 flex items-center justify-between rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3.5 py-2.5 dark:border-neutral-700 dark:bg-neutral-900/60">
+                  <div className="min-w-0 pr-2">
+                    <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                      Invite via link
+                    </p>
+                    <p className="truncate text-[11px] text-neutral-500">
+                      Anyone with this link joins as {inviteRole}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleCopyInviteLink()}
+                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                      linkCopied
+                        ? "bg-emerald-600 text-white"
+                        : "bg-neutral-200 text-neutral-800 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                    }`}
+                  >
+                    {linkCopied ? (
+                      <>
+                        <Check size={12} />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon size={12} />
+                        <span>Copy link</span>
+                      </>
+                    )}
+                  </button>
+                </div>
 
-            <div className="relative mb-4 flex items-center justify-center">
-              <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
-              <span className="absolute bg-white px-2 text-[10px] uppercase tracking-wider text-neutral-400 dark:bg-neutral-900">
-                or invite by username
-              </span>
-            </div>
+                <div className="relative mb-4 flex items-center justify-center">
+                  <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
+                  <span className="absolute bg-white px-2 text-[10px] uppercase tracking-wider text-neutral-400 dark:bg-neutral-900">
+                    or invite by username
+                  </span>
+                </div>
 
-            {/* Username input */}
-            <div className="mb-5 flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Enter username (e.g. janedoe)"
-                value={inviteUsername}
-                onChange={(e) => setInviteUsername(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void handleInvite();
-                }}
-                className="flex-1 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-              />
-              <button
-                type="button"
-                disabled={inviting || !inviteUsername.trim()}
-                onClick={() => void handleInvite()}
-                className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-50"
-              >
-                {inviting ? "Inviting…" : "Invite"}
-              </button>
-            </div>
+                {/* Username input */}
+                <div className="mb-5 flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter username (e.g. janedoe)"
+                    value={inviteUsername}
+                    onChange={(e) => setInviteUsername(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void handleInvite();
+                    }}
+                    className="flex-1 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                  />
+                  <button
+                    type="button"
+                    disabled={inviting || !inviteUsername.trim()}
+                    onClick={() => void handleInvite()}
+                    className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {inviting ? "Inviting…" : "Invite"}
+                  </button>
+                </div>
+              </>
+            )}
 
             {collaborators.length > 0 && (
               <div>
@@ -988,14 +1155,16 @@ export function BoardPage() {
                         >
                           {c.role}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => void handleRemoveCollaborator(c.userId)}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
-                          title="Remove collaborator"
-                        >
-                          <X size={13} />
-                        </button>
+                        {isOwner && (
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveCollaborator(c.userId)}
+                            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
+                            title="Remove collaborator"
+                          >
+                            <X size={13} />
+                          </button>
+                        )}
                       </div>
                     </li>
                   ))}

@@ -23,7 +23,7 @@ export class CollaboratorsService {
   async inviteCollaborator(boardId: string, currentUserId: string, usernameToInvite: string, role: 'editor' | 'viewer') {
     const board = await this.boardsRepo.findOne({ where: { id: boardId } });
     if (!board) throw new NotFoundException('Board not found');
-    if (board.ownerId !== currentUserId) throw new ConflictException('Only the owner can invite collaborators');
+    if (board.ownerId !== currentUserId) throw new ForbiddenException('Only the board owner can invite collaborators');
 
     const profile = await this.profilesRepo.findOne({ where: { username: usernameToInvite }, relations: { user: true } });
     if (!profile) throw new NotFoundException('User with that username not found');
@@ -43,7 +43,7 @@ export class CollaboratorsService {
     
     // Either the owner is removing someone, or the collaborator is leaving
     if (board.ownerId !== currentUserId && currentUserId !== userIdToRemove) {
-      throw new ConflictException('Unauthorized to remove collaborator');
+      throw new ForbiddenException('Only the board owner can remove collaborators');
     }
 
     await this.collabsRepo.delete({ boardId, userId: userIdToRemove });

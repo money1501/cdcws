@@ -2,6 +2,7 @@ import {
   BaseBoxShapeUtil,
   HTMLContainer,
   T,
+  useValue,
   type RecordProps,
   type TLResizeInfo,
 } from '@tldraw/tldraw';
@@ -13,6 +14,8 @@ import {
   Presentation,
   Copy,
   Trash2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { IDocumentShape, DocumentShapeProps, DocumentType } from './DocumentBlockTypes';
 import { DEFAULT_TEXT_CONTENT } from './DocumentBlockTypes';
@@ -58,6 +61,9 @@ const DOC_TYPE_META: Record<
   },
 };
 
+/** Height of the header bar — the only visible area when collapsed. */
+const COLLAPSED_H = 36;
+
 export class DocumentShapeUtil extends BaseBoxShapeUtil<any> {
   static override type = 'document_block' as const;
 
@@ -68,6 +74,8 @@ export class DocumentShapeUtil extends BaseBoxShapeUtil<any> {
     title: T.string,
     content: T.string,
     meta: T.jsonValue as any,
+    collapsed: T.boolean,
+    expandedH: T.number,
   };
 
   override getDefaultProps(): DocumentShapeProps {
@@ -78,6 +86,8 @@ export class DocumentShapeUtil extends BaseBoxShapeUtil<any> {
       title: 'Notes & Ideas',
       content: DEFAULT_TEXT_CONTENT,
       meta: {},
+      collapsed: false,
+      expandedH: 380,
     };
   }
 
@@ -93,8 +103,19 @@ export class DocumentShapeUtil extends BaseBoxShapeUtil<any> {
 
   override onResize(shape: IDocumentShape, info: TLResizeInfo<any>) {
     const minW = 320;
-    const minH = 240;
     const resized = super.onResize(shape, info);
+    if (shape.props.collapsed) {
+      // While collapsed, only width resizing is permitted; height stays fixed.
+      return {
+        ...resized,
+        props: {
+          ...resized.props,
+          w: Math.max(minW, resized.props.w),
+          h: COLLAPSED_H,
+        },
+      };
+    }
+    const minH = 240;
     return {
       ...resized,
       props: {
@@ -111,6 +132,37 @@ export class DocumentShapeUtil extends BaseBoxShapeUtil<any> {
     const docType: DocumentType = shape.props.docType || 'text';
     const metaConfig = DOC_TYPE_META[docType] || DOC_TYPE_META.text;
     const IconComponent = metaConfig.icon;
+
+    // Reactively track the zoom level so the block counter-scales its content,
+    // keeping the internal UI at a consistent pixel size at any zoom level.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const zoom = useValue('zoom', () => editor.getZoomLevel(), [editor]);
+
+    const handleToggleCollapse = () => {
+      if (isReadOnly) return;
+      if (shape.props.collapsed) {
+        // Expand: restore previously saved height.
+        editor.updateShape({
+          id: shape.id,
+          type: 'document_block',
+          props: {
+            collapsed: false,
+            h: shape.props.expandedH || 380,
+          },
+        } as any);
+      } else {
+        // Collapse: save current height then shrink to header bar only.
+        editor.updateShape({
+          id: shape.id,
+          type: 'document_block',
+          props: {
+            collapsed: true,
+            expandedH: shape.props.h,
+            h: COLLAPSED_H,
+          },
+        } as any);
+      }
+    };
 
     const handleContentChange = (newContent: string, extraMeta?: Record<string, any>) => {
       if (isReadOnly) return;
@@ -145,6 +197,16 @@ export class DocumentShapeUtil extends BaseBoxShapeUtil<any> {
       editor.deleteShapes([shape.id]);
     };
 
+    // The outer HTMLContainer occupies exactly shape.props.w × shape.props.h in
+    // canvas space (tldraw positions and clips it).  Inside we apply an inverse-
+    // zoom scale so the UI chrome (header height, font sizes, buttons) stays at a
+    // stable pixel size regardless of how far the user is zoomed in or out.
+    // The inner div is sized at (w * zoom) × (h * zoom) so that after the
+    // scale(1/zoom) transform it fills the container exactly.
+    const inverseScale = 1 / zoom;
+    const scaledW = shape.props.w * zoom;
+    const scaledH = shape.props.h * zoom;
+
     return (
       <HTMLContainer
         id={shape.id}
@@ -152,106 +214,127 @@ export class DocumentShapeUtil extends BaseBoxShapeUtil<any> {
           width: shape.props.w,
           height: shape.props.h,
           pointerEvents: 'all',
+          overflow: 'hidden',
         }}
-        className="group relative flex flex-col overflow-hidden rounded-xl border border-neutral-300/80 bg-white/95 text-neutral-900 shadow-xl backdrop-blur-md transition-shadow hover:shadow-2xl dark:border-neutral-700/80 dark:bg-neutral-900/95 dark:text-neutral-100"
       >
-        {/* Document Header Bar */}
+        {/* Counter-scale wrapper: renders at 1:1 pixel density independent of zoom */}
         <div
-          className="flex h-9 shrink-0 items-center justify-between border-b border-neutral-200/80 bg-neutral-100/90 px-3 select-none dark:border-neutral-800/80 dark:bg-neutral-800/90"
+          style={{
+            width: scaledW,
+            height: scaledH,
+            transform: `scale(${inverseScale})`,
+            transformOrigin: 'top left',
+          }}
+          className="flex flex-col rounded-xl border border-neutral-300/80 bg-white/95 text-neutral-900 shadow-xl backdrop-blur-md transition-shadow hover:shadow-2xl dark:border-neutral-700/80 dark:bg-neutral-900/95 dark:text-neutral-100"
         >
-          {/* Left info: Icon, Type Badge & Editable Title */}
-          <div className="flex items-center gap-2 overflow-hidden mr-2">
-            <span
-              className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase shrink-0 ${metaConfig.colorBadge}`}
-            >
-              <IconComponent size={11} />
-              <span>{docType}</span>
-            </span>
-
-            <input
-              type="text"
-              value={shape.props.title || metaConfig.defaultTitle}
-              onChange={(e) => handleTitleChange(e.target.value)}
-              onPointerDown={(e) => e.stopPropagation()}
-              readOnly={isReadOnly}
-              title="Click to rename document"
-              className="min-w-[60px] max-w-[240px] truncate border-b border-transparent bg-transparent text-xs font-semibold text-neutral-800 outline-none hover:border-neutral-400 focus:border-brand dark:text-neutral-200 dark:hover:border-neutral-500"
-            />
-          </div>
-
-          {/* Right actions: Duplicate, Delete */}
+          {/* Document Header Bar */}
           <div
-            className="flex items-center gap-1"
-            onPointerDown={(e) => e.stopPropagation()}
+            className="flex h-9 shrink-0 items-center justify-between border-b border-neutral-200/80 bg-neutral-100/90 px-3 select-none dark:border-neutral-800/80 dark:bg-neutral-800/90"
           >
-            {!isReadOnly && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleDuplicate}
-                  title="Duplicate Document Block"
-                  className="rounded p-1 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
-                >
-                  <Copy size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  title="Delete Document Block"
-                  className="rounded p-1 text-neutral-500 hover:bg-red-100 hover:text-red-600 dark:text-neutral-400 dark:hover:bg-red-950/60 dark:hover:text-red-400"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </>
-            )}
+            {/* Left info: Icon, Type Badge & Editable Title */}
+            <div className="flex items-center gap-2 overflow-hidden mr-2">
+              <span
+                className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wider uppercase shrink-0 ${metaConfig.colorBadge}`}
+              >
+                <IconComponent size={11} />
+                <span>{docType}</span>
+              </span>
+
+              <input
+                type="text"
+                value={shape.props.title || metaConfig.defaultTitle}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                onPointerDown={(e) => e.stopPropagation()}
+                readOnly={isReadOnly}
+                title="Click to rename document"
+                className="min-w-[60px] max-w-[240px] truncate border-b border-transparent bg-transparent text-xs font-semibold text-neutral-800 outline-none hover:border-neutral-400 focus:border-brand dark:text-neutral-200 dark:hover:border-neutral-500"
+              />
+            </div>
+
+            {/* Right actions: Collapse/Expand, Duplicate, Delete */}
+            <div
+              className="flex items-center gap-1"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={handleToggleCollapse}
+                title={shape.props.collapsed ? 'Expand document block' : 'Collapse document block'}
+                className="rounded p-1 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
+              >
+                {shape.props.collapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+              </button>
+              {!isReadOnly && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleDuplicate}
+                    title="Duplicate Document Block"
+                    className="rounded p-1 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
+                  >
+                    <Copy size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    title="Delete Document Block"
+                    className="rounded p-1 text-neutral-500 hover:bg-red-100 hover:text-red-600 dark:text-neutral-400 dark:hover:bg-red-950/60 dark:hover:text-red-400"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Document Body */}
-        <div className="relative flex-1 overflow-hidden">
-          {docType === 'text' && (
-            <TextEditorBlock
-              content={shape.props.content}
-              onChange={(c) => handleContentChange(c)}
-              readOnly={isReadOnly}
-            />
-          )}
+          {/* Document Body — hidden when collapsed */}
+          {!shape.props.collapsed && (
+            <div className="relative flex-1 overflow-hidden">
+              {docType === 'text' && (
+                <TextEditorBlock
+                  content={shape.props.content}
+                  onChange={(c) => handleContentChange(c)}
+                  readOnly={isReadOnly}
+                />
+              )}
 
-          {docType === 'code' && (
-            <CodeEditorBlock
-              content={shape.props.content}
-              language={shape.props.meta?.language || 'typescript'}
-              onChange={(c) => handleContentChange(c)}
-              onLanguageChange={(lang) => handleContentChange(shape.props.content, { language: lang })}
-              readOnly={isReadOnly}
-            />
-          )}
+              {docType === 'code' && (
+                <CodeEditorBlock
+                  content={shape.props.content}
+                  language={shape.props.meta?.language || 'typescript'}
+                  onChange={(c) => handleContentChange(c)}
+                  onLanguageChange={(lang) => handleContentChange(shape.props.content, { language: lang })}
+                  readOnly={isReadOnly}
+                />
+              )}
 
-          {docType === 'sheet' && (
-            <SpreadsheetBlock
-              content={shape.props.content}
-              meta={shape.props.meta}
-              onChange={(c, m) => handleContentChange(c, m)}
-              readOnly={isReadOnly}
-            />
-          )}
+              {docType === 'sheet' && (
+                <SpreadsheetBlock
+                  content={shape.props.content}
+                  meta={shape.props.meta}
+                  onChange={(c, m) => handleContentChange(c, m)}
+                  readOnly={isReadOnly}
+                />
+              )}
 
-          {docType === 'pdf' && (
-            <PdfViewerBlock
-              content={shape.props.content}
-              meta={shape.props.meta}
-              onChange={(c, m) => handleContentChange(c, m)}
-              readOnly={isReadOnly}
-            />
-          )}
+              {docType === 'pdf' && (
+                <PdfViewerBlock
+                  content={shape.props.content}
+                  meta={shape.props.meta}
+                  onChange={(c, m) => handleContentChange(c, m)}
+                  readOnly={isReadOnly}
+                />
+              )}
 
-          {docType === 'slides' && (
-            <SlideshowBlock
-              content={shape.props.content}
-              meta={shape.props.meta}
-              onChange={(c, m) => handleContentChange(c, m)}
-              readOnly={isReadOnly}
-            />
+              {docType === 'slides' && (
+                <SlideshowBlock
+                  content={shape.props.content}
+                  meta={shape.props.meta}
+                  onChange={(c, m) => handleContentChange(c, m)}
+                  readOnly={isReadOnly}
+                />
+              )}
+            </div>
           )}
         </div>
       </HTMLContainer>

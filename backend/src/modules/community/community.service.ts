@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Board, BoardVisibility } from '../../database/entities/board.entity';
+import { BoardCollaborator } from '../../database/entities/board-collaborator.entity';
 import { VotesService } from './votes.service';
 import { CommentsService } from './comments.service';
 import { BookmarksService } from './bookmarks.service';
@@ -36,6 +37,8 @@ export class CommunityService {
   constructor(
     @InjectRepository(Board)
     private readonly boardsRepository: Repository<Board>,
+    @InjectRepository(BoardCollaborator)
+    private readonly collabsRepository: Repository<BoardCollaborator>,
     private readonly votesService: VotesService,
     private readonly commentsService: CommentsService,
     private readonly bookmarksService: BookmarksService,
@@ -101,27 +104,31 @@ export class CommunityService {
   }
 
   async duplicateBoard(id: string, currentUserId: string): Promise<Board> {
-    // Readable via ownership OR public visibility — matches "duplicate
-    // shared boards" from the community use case, but also lets an owner
-    // duplicate their own private board as a quick copy.
+    // Readable via ownership, collaborator access, OR public visibility
     const board = await this.boardsRepository.findOne({ where: { id } });
-    if (
-      !board ||
-      (board.visibility !== BoardVisibility.PUBLIC &&
-        board.ownerId !== currentUserId)
-    ) {
+    if (!board) {
       throw new NotFoundException(`Board ${id} not found`);
+    }
+
+    if (
+      board.visibility !== BoardVisibility.PUBLIC &&
+      board.ownerId !== currentUserId
+    ) {
+      const collab = await this.collabsRepository.findOne({
+        where: { boardId: id, userId: currentUserId },
+      });
+      if (!collab) {
+        throw new NotFoundException(`Board ${id} not found`);
+      }
     }
 
     const copy = this.boardsRepository.create({
       ownerId: currentUserId,
       title: `${board.title} (copy)`,
       visibility: BoardVisibility.PRIVATE,
-      // Verbatim JSON copy — same shape/page ids as the original. Safe
-      // since a duplicate never joins the same collaboration room as its
-      // source; true id-remapping is a stretch goal, not MVP (see
-      // PROGRESS.md).
+      publishedFromId: null,
       snapshot: board.snapshot,
+      thumbnailUrl: board.thumbnailUrl,
     });
     return this.boardsRepository.save(copy);
   }
