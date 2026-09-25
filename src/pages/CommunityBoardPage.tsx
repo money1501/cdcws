@@ -6,7 +6,6 @@ import type { FeedItemDetail } from "@shared/community";
 import { getCommunityBoard, duplicateBoard } from "@/lib/community-api";
 import { BoardCanvas } from "@/features/canvas/BoardCanvas";
 import { ShareTray } from "@/features/share/ShareTray";
-import { VoiceBar } from "@/features/voice/VoiceBar";
 import { VoteButtons } from "@/features/community/VoteButtons";
 import { CommentThread } from "@/features/community/CommentThread";
 import { Avatar } from "@/components/Avatar";
@@ -111,7 +110,6 @@ export function CommunityBoardPage() {
             readOnly
             onEditorReady={setEditor}
           />
-          <VoiceBar boardId={item.id} />
         </div>
         <div className="w-80 shrink-0 overflow-y-auto border-l border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900/40">
           {(item.postDetails ||

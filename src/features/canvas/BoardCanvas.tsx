@@ -3,6 +3,19 @@ import {
   Tldraw,
   DefaultStylePanel,
   DefaultToolbar,
+  SelectToolbarItem,
+  HandToolbarItem,
+  DrawToolbarItem,
+  EraserToolbarItem,
+  ArrowToolbarItem,
+  TextToolbarItem,
+  NoteToolbarItem,
+  AssetToolbarItem,
+  RectangleToolbarItem,
+  EllipseToolbarItem,
+  LineToolbarItem,
+  HighlightToolbarItem,
+  FrameToolbarItem,
   type Editor,
   type TLEditorSnapshot,
 } from '@tldraw/tldraw';
@@ -25,14 +38,28 @@ function LeftStylePanel() {
   );
 }
 
-/** Places the Add Document button to the left of the bottom toolbar. */
+/** Places the Add Document button to the left of the bottom toolbar and shows arrow, text, note, media in main toolbar. */
 function CustomToolbar(props: any) {
   return (
     <div className="flex items-end gap-2">
       <div className="pb-[calc(var(--tl-space-3)+var(--tl-sab))] pointer-events-auto">
         <DocumentToolbar />
       </div>
-      <DefaultToolbar {...props} />
+      <DefaultToolbar {...props} minItems={8} maxItems={25} maxSizePx={1200}>
+        <SelectToolbarItem />
+        <HandToolbarItem />
+        <DrawToolbarItem />
+        <EraserToolbarItem />
+        <ArrowToolbarItem />
+        <TextToolbarItem />
+        <NoteToolbarItem />
+        <AssetToolbarItem />
+        <RectangleToolbarItem />
+        <EllipseToolbarItem />
+        <LineToolbarItem />
+        <HighlightToolbarItem />
+        <FrameToolbarItem />
+      </DefaultToolbar>
     </div>
   );
 }

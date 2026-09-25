@@ -36,7 +36,7 @@ export function LoginPage() {
         <div className="mb-6 flex flex-col items-center gap-2">
           <DrawgonMark size={44} />
           <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-            Log in to Drawgon
+            Log in to Boared
           </h1>
         </div>
 

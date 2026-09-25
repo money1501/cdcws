@@ -21,7 +21,7 @@ export function DrawgonMark({ size = 32, className, animated = false }: DrawgonM
   return (
     <img
       src={LOGO_SRC}
-      alt="Drawgon"
+      alt="Boared"
       width={Math.round(size * ASPECT)}
       height={size}
       className={[

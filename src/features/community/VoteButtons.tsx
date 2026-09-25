@@ -37,7 +37,7 @@ export function VoteButtons({ boardId, score, myVote, onChange }: VoteButtonsPro
     requireAuth(() => executeVote(value), {
       reason: 'upvote',
       title: 'Log in to vote',
-      description: 'Sign in to upvote and support boards from the Drawgon community.',
+      description: 'Sign in to upvote and support boards from the Boared community.',
     });
   }
 

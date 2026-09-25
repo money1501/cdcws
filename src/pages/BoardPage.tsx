@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Check,
   Copy,
@@ -13,6 +13,8 @@
   X,
   Sparkles,
   LogIn,
+  Compass,
+  AlertTriangle,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -29,11 +31,10 @@ import {
   createBoard,
   duplicateBoard,
 } from "@/lib/boards-api";
-import { listCommunities, setBoardCommunities } from "@/lib/communities-api";
+import { listMyCommunities, setBoardCommunities } from "@/lib/communities-api";
 import { BoardCanvas } from "@/features/canvas/BoardCanvas";
 import { ShareTray } from "@/features/share/ShareTray";
 import { BoardTitle } from "@/features/canvas/BoardTitle";
-import { VoiceBar } from "@/features/voice/VoiceBar";
 import { PersonalFilesSidebar } from "@/features/files/PersonalFilesSidebar";
 import { usePersonalFilesStore } from "@/features/files/usePersonalFilesStore";
 import {
@@ -81,6 +82,7 @@ export function BoardPage() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [activeCollaborators, setActiveCollaborators] = useState<ActiveCollaborator[]>([]);
   const [visibilityConfirmOpen, setVisibilityConfirmOpen] = useState(false);
+  const [privatePostWarningOpen, setPrivatePostWarningOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishForm, setPublishForm] = useState({
     postTitle: "",
@@ -176,7 +178,7 @@ export function BoardPage() {
   useEffect(() => {
     if (!publishOpen) return;
 
-    listCommunities()
+    listMyCommunities()
       .then((items) => {
         setCommunities(items);
         setSelectedCommunities((prev) =>
@@ -269,6 +271,10 @@ export function BoardPage() {
     }
     requireAuth(
       () => {
+        if (board?.visibility !== "public") {
+          setPrivatePostWarningOpen(true);
+          return;
+        }
         void doOpenPublishDialog();
       },
       {
@@ -279,10 +285,29 @@ export function BoardPage() {
     );
   }
 
+  async function handleMakePublicAndPost() {
+    if (!board) return;
+    try {
+      const updated = await updateBoardVisibility(
+        board.id,
+        "public",
+      );
+      setBoard(updated);
+      setPrivatePostWarningOpen(false);
+      toast.success("Board is now Public!");
+      void doOpenPublishDialog();
+    } catch {
+      toast.error("Could not update board visibility.");
+    }
+  }
+
   async function handlePublish() {
+    if (!board) return;
+    if (board.visibility !== "public") {
+      setPrivatePostWarningOpen(true);
+      return;
+    }
     if (
-      !board ||
-      board.visibility !== "public" ||
       publishing ||
       selectedCommunities.length === 0 ||
       !publishForm.postTitle.trim()
@@ -715,7 +740,6 @@ export function BoardPage() {
             onEditorReady={setEditor}
             onActiveCollaboratorsChange={setActiveCollaborators}
           />
-          <VoiceBar boardId={board.id} />
         </div>
         <PersonalFilesSidebar boardId={board.id} />
       </div>
@@ -860,40 +884,75 @@ export function BoardPage() {
               <div className="p-5">
                 <div className="space-y-4">
                   <div>
-                    <span className="mb-1.5 block text-sm font-medium text-neutral-700 dark:text-neutral-200">
-                      Select communities
-                    </span>
-                    <div className="relative mb-2">
-                      <Search
-                        size={14}
-                        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
-                      />
-                      <input
-                        value={communitySearch}
-                        onChange={(e) => setCommunitySearch(e.target.value)}
-                        placeholder="Search communities..."
-                        className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 pl-8 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                      />
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                        Your joined communities
+                      </span>
+                      <Link
+                        to="/communities"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline"
+                        title="Explore and join communities"
+                      >
+                        <Compass size={12} />
+                        Explore communities
+                      </Link>
                     </div>
+                    {communities.length > 0 && (
+                      <div className="relative mb-2">
+                        <Search
+                          size={14}
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                        />
+                        <input
+                          value={communitySearch}
+                          onChange={(e) => setCommunitySearch(e.target.value)}
+                          placeholder="Search your joined communities..."
+                          className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 pl-8 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                        />
+                      </div>
+                    )}
                     <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-neutral-200 p-2 dark:border-neutral-800">
-                      {filteredCommunities.map((c) => {
-                        const selected = selectedCommunities.includes(c.id);
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => toggleCommunitySelection(c.id)}
-                            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
-                              selected
-                                ? "bg-brand/10 text-brand dark:bg-brand/20"
-                                : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                            }`}
+                      {communities.length === 0 ? (
+                        <div className="py-6 px-3 text-center">
+                          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                            You haven't joined any communities yet.
+                          </p>
+                          <Link
+                            to="/communities"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-brand-hover shadow-xs"
                           >
-                            <span>d/{c.slug}</span>
-                            {selected && <Check size={14} />}
-                          </button>
-                        );
-                      })}
+                            <Compass size={12} />
+                            Explore communities
+                          </Link>
+                        </div>
+                      ) : filteredCommunities.length === 0 ? (
+                        <p className="py-4 text-center text-xs text-neutral-400">
+                          No joined community matches "{communitySearch}"
+                        </p>
+                      ) : (
+                        filteredCommunities.map((c) => {
+                          const selected = selectedCommunities.includes(c.id);
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => toggleCommunitySelection(c.id)}
+                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition ${
+                                selected
+                                  ? "bg-brand/10 text-brand dark:bg-brand/20"
+                                  : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                              }`}
+                            >
+                              <span>d/{c.slug}</span>
+                              {selected && <Check size={14} />}
+                            </button>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
 
@@ -958,11 +1017,50 @@ export function BoardPage() {
               </button>
               <button
                 type="button"
-                disabled={publishing || selectedCommunities.length === 0 || !publishForm.postTitle.trim() || board.visibility !== "public"}
+                disabled={publishing || selectedCommunities.length === 0 || !publishForm.postTitle.trim()}
                 onClick={() => void handlePublish()}
                 className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {publishing ? "Posting\u2026" : "Post Now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Private Board Warning Dialog for Posting */}
+      {privatePostWarningOpen && (
+        <div className="fixed inset-0 z-[100002] flex items-center justify-center bg-neutral-950/45 p-4 backdrop-blur-[1px]">
+          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+                <AlertTriangle size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+                  Turn Board Public First
+                </h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  This board is currently <span className="font-semibold text-neutral-800 dark:text-neutral-200">Private</span>. Only public boards can be posted to the community feed. Please change the board visibility to public first.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPrivatePostWarningOpen(false)}
+                className="rounded-full border border-neutral-200 px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleMakePublicAndPost()}
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-hover shadow-xs"
+              >
+                <Globe size={13} />
+                <span>Turn Public & Continue</span>
               </button>
             </div>
           </div>
