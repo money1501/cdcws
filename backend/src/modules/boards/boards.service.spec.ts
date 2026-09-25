@@ -62,6 +62,7 @@ describe('BoardsService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(repository.findOne).toHaveBeenCalledWith({
       where: { id: 'board-1', ownerId: 'owner-1' },
+      relations: { owner: true },
     });
   });
 
@@ -81,6 +82,8 @@ describe('BoardsService', () => {
       ownerId: 'owner-1',
       title: 'My board',
       snapshot: {},
+      visibility: BoardVisibility.PRIVATE,
+      anyoneCanEdit: false,
     } as Board;
     repository.create!.mockReturnValue(created);
     repository.save!.mockResolvedValue({
@@ -96,6 +99,8 @@ describe('BoardsService', () => {
       title: 'My board',
       snapshot: {},
       thumbnailUrl: null,
+      visibility: BoardVisibility.PRIVATE,
+      anyoneCanEdit: false,
     });
     expect(repository.save).toHaveBeenCalledWith(created);
     expect(result.id).toBe('board-1');
@@ -109,6 +114,8 @@ describe('BoardsService', () => {
       title: 'Anonymous Board Upgraded',
       snapshot: customSnapshot,
       thumbnailUrl: customThumbnail,
+      visibility: BoardVisibility.PRIVATE,
+      anyoneCanEdit: false,
     } as Board;
     repository.create!.mockReturnValue(created);
     repository.save!.mockResolvedValue({
@@ -128,6 +135,8 @@ describe('BoardsService', () => {
       title: 'Anonymous Board Upgraded',
       snapshot: customSnapshot,
       thumbnailUrl: customThumbnail,
+      visibility: BoardVisibility.PRIVATE,
+      anyoneCanEdit: false,
     });
     expect(repository.save).toHaveBeenCalledWith(created);
     expect(result.id).toBe('board-2');

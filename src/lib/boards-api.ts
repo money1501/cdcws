@@ -43,9 +43,11 @@ export async function renameBoard(id: string, title: string): Promise<Board> {
 export async function updateBoardVisibility(
   id: string,
   visibility: BoardVisibility,
+  anyoneCanEdit?: boolean,
 ): Promise<Board> {
   const res = await apiClient.patch<Board>(`/boards/${id}/visibility`, {
     visibility,
+    ...(anyoneCanEdit !== undefined ? { anyoneCanEdit } : {}),
   });
   return res.data;
 }

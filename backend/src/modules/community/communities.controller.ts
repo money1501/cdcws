@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -11,6 +12,7 @@ import {
 import { AllowAnonymous, Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { CommunitiesService } from './communities.service';
 import { CreateCommunityDto } from './dto/create-community.dto';
+import { UpdateCommunityDto } from './dto/update-community.dto';
 import {
   SetBoardCommunitiesDto,
   SetBoardCommunityDto,
@@ -34,6 +36,15 @@ export class CommunitiesController {
   @Post()
   create(@Session() session: UserSession, @Body() dto: CreateCommunityDto) {
     return this.communitiesService.create(session.user.id, dto);
+  }
+
+  @Patch(':slug')
+  update(
+    @Param('slug') slug: string,
+    @Session() session: UserSession,
+    @Body() dto: UpdateCommunityDto,
+  ) {
+    return this.communitiesService.update(slug, session.user.id, dto);
   }
 
   @AllowAnonymous()

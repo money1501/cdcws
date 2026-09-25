@@ -16,12 +16,14 @@ import {
 } from '../../database/entities/community-member.entity';
 import { CommunityService, type FeedItem } from './community.service';
 import { CreateCommunityDto } from './dto/create-community.dto';
+import { UpdateCommunityDto } from './dto/update-community.dto';
 
 export interface CommunitySummary {
   id: string;
   slug: string;
   name: string;
   description: string | null;
+  iconUrl: string | null;
   memberCount: number;
   boardCount: number;
   joined: boolean;
@@ -125,6 +127,7 @@ export class CommunitiesService {
         slug,
         name: dto.name.trim(),
         description: dto.description?.trim() || null,
+        iconUrl: dto.iconUrl || null,
         createdBy: currentUserId,
       }),
     );
@@ -138,6 +141,40 @@ export class CommunitiesService {
       }),
     );
 
+    const [summary] = await this.summarise([community], currentUserId);
+    return summary;
+  }
+
+  async update(
+    slug: string,
+    currentUserId: string,
+    dto: UpdateCommunityDto,
+  ): Promise<CommunitySummary> {
+    const community = await this.findBySlugOrFail(slug);
+    const membership = await this.membersRepository.findOneBy({
+      communityId: community.id,
+      userId: currentUserId,
+    });
+
+    if (membership?.role !== CommunityRole.OWNER && community.createdBy !== currentUserId) {
+      throw new ForbiddenException('Only the community owner can edit community details.');
+    }
+
+    if (dto.name !== undefined) {
+      const name = dto.name.trim();
+      if (!name) throw new BadRequestException('Community name cannot be blank.');
+      community.name = name;
+    }
+
+    if (dto.description !== undefined) {
+      community.description = dto.description?.trim() || null;
+    }
+
+    if (dto.iconUrl !== undefined) {
+      community.iconUrl = dto.iconUrl || null;
+    }
+
+    await this.communitiesRepository.save(community);
     const [summary] = await this.summarise([community], currentUserId);
     return summary;
   }
@@ -202,8 +239,8 @@ export class CommunitiesService {
       .createQueryBuilder('board')
       .leftJoin('board_communities', 'boardCommunity', 'boardCommunity.board_id = board.id')
       .leftJoinAndSelect('board.owner', 'owner')
-      .where('board.visibility = :visibility', {
-        visibility: BoardVisibility.PUBLIC,
+      .where('board.visibility IN (:...visibilities)', {
+        visibilities: [BoardVisibility.PUBLIC, BoardVisibility.PUBLISHED],
       })
       .andWhere(
         '(board.community_id = :communityId OR boardCommunity.community_id = :communityId)',
@@ -341,6 +378,7 @@ export class CommunitiesService {
         slug: c.slug,
         name: c.name,
         description: c.description,
+        iconUrl: c.iconUrl ?? null,
         memberCount: memberCounts.get(c.id) ?? 0,
         boardCount: boardCounts.get(c.id) ?? 0,
         joined: roles.has(c.id),

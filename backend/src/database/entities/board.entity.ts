@@ -16,6 +16,7 @@ import { Community } from './community.entity';
 export enum BoardVisibility {
   PRIVATE = 'private',
   PUBLIC = 'public',
+  PUBLISHED = 'published',
 }
 
 @Entity('boards')
@@ -56,6 +57,15 @@ export class Board {
     default: BoardVisibility.PRIVATE,
   })
   visibility!: BoardVisibility;
+
+  @Column({ type: 'boolean', name: 'anyone_can_edit', default: false })
+  anyoneCanEdit!: boolean;
+
+  @Column({ type: 'text', name: 'original_owner_id', nullable: true })
+  originalOwnerId!: string | null;
+
+  @Column({ type: 'varchar', length: 255, name: 'original_owner_name', nullable: true })
+  originalOwnerName!: string | null;
 
   /** Community this board is posted to; null means it is unfiled. */
   @Index()

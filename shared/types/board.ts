@@ -1,4 +1,4 @@
-export type BoardVisibility = 'private' | 'public';
+export type BoardVisibility = 'private' | 'public' | 'published';
 
 export interface BoardPostMedia {
   name: string;
@@ -16,11 +16,16 @@ export interface BoardSummary {
   postTags: string[];
   postMedia: BoardPostMedia[];
   visibility: BoardVisibility;
+  anyoneCanEdit?: boolean;
+  originalOwnerId?: string | null;
+  originalOwnerName?: string | null;
   /** Community the board is filed under, or null when unfiled. */
   communityId: string | null;
   thumbnailUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  role?: 'owner' | 'editor' | 'viewer';
+  canEdit?: boolean;
 }
 
 export interface Board extends BoardSummary {
@@ -39,6 +44,7 @@ export interface UpdateBoardSnapshotInput {
 
 export interface UpdateBoardVisibilityInput {
   visibility: BoardVisibility;
+  anyoneCanEdit?: boolean;
 }
 
 export interface BoardCollaborator {

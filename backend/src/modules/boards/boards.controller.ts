@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous, Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { BoardsService } from './boards.service';
 import { CreateBoardDto } from './dto/create-board.dto';
 import { UpdateBoardSnapshotDto } from './dto/update-board-snapshot.dto';
@@ -7,11 +7,9 @@ import { UpdateBoardVisibilityDto } from './dto/update-board-visibility.dto';
 import { RenameBoardDto } from './dto/rename-board.dto';
 import { PublishBoardDto } from './dto/publish-board.dto';
 
-// Every route here is behind the global AuthGuard (see AppModule) — Session()
-// only resolves once better-auth has validated the request's session cookie.
 @Controller('boards')
 export class BoardsController {
-  constructor(private readonly boardsService: BoardsService) {}
+  constructor(private readonly boardsService: BoardsService) { }
 
   @Get()
   list(@Session() session: UserSession) {
@@ -23,9 +21,10 @@ export class BoardsController {
     return this.boardsService.listSharedWith(session.user.id);
   }
 
+  @AllowAnonymous()
   @Get(':id')
-  findOne(@Param('id') id: string, @Session() session: UserSession) {
-    return this.boardsService.findOneAccessibleBy(id, session.user.id);
+  findOne(@Param('id') id: string, @Session() session?: UserSession) {
+    return this.boardsService.findOneAccessibleBy(id, session?.user?.id ?? null);
   }
 
   @Post()
@@ -38,13 +37,15 @@ export class BoardsController {
     return this.boardsService.duplicate(id, session.user.id);
   }
 
+  @AllowAnonymous()
+
   @Patch(':id/snapshot')
   updateSnapshot(
     @Param('id') id: string,
     @Body() dto: UpdateBoardSnapshotDto,
-    @Session() session: UserSession,
+    @Session() session?: UserSession,
   ) {
-    return this.boardsService.updateSnapshot(id, session.user.id, dto);
+    return this.boardsService.updateSnapshot(id, session?.user?.id ?? null, dto);
   }
 
   @Patch(':id/title')
