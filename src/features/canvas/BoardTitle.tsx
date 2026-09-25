@@ -29,6 +29,10 @@ export function BoardTitle({ boardId, title, onRenamed }: BoardTitleProps) {
       setDraft(title);
       return;
     }
+    if (boardId === 'local' || boardId === 'new' || !boardId) {
+      onRenamed(next);
+      return;
+    }
     setSaving(true);
     try {
       const board = await renameBoard(boardId, next);

@@ -14,15 +14,25 @@ interface UseBoardSyncOptions {
   boardId: string;
   editor: Editor | null;
   readOnly?: boolean;
+  enabled?: boolean;
 }
 
-export function useBoardSync({ boardId, editor, readOnly = false }: UseBoardSyncOptions) {
+export function useBoardSync({
+  boardId,
+  editor,
+  readOnly = false,
+  enabled = true,
+}: UseBoardSyncOptions) {
   const [activeCollaborators, setActiveCollaborators] = useState<ActiveCollaborator[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (!boardId) return;
+    if (!enabled || !boardId || boardId === 'local' || boardId === 'new') {
+      setIsConnected(false);
+      setActiveCollaborators([]);
+      return;
+    }
 
     const socket = io(`${API_BASE_URL}/boards-sync`, {
       withCredentials: true,
@@ -55,7 +65,7 @@ export function useBoardSync({ boardId, editor, readOnly = false }: UseBoardSync
       setIsConnected(false);
       setActiveCollaborators([]);
     };
-  }, [boardId]);
+  }, [boardId, enabled]);
 
   // Handle incoming remote changes and outgoing local changes
   useEffect(() => {

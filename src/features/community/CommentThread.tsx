@@ -3,21 +3,23 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Comment } from '@shared/community';
 import { addComment, listComments } from '@/lib/community-api';
 import { Avatar } from '@/components/Avatar';
+import { useAuthModal } from '@/lib/auth-modal-context';
 
 export function CommentThread({ boardId }: { boardId: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const { requireAuth } = useAuthModal();
 
   useEffect(() => {
     listComments(boardId)
       .then(setComments)
+      .catch(() => setComments([]))
       .finally(() => setLoading(false));
   }, [boardId]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function postComment() {
     if (!body.trim() || submitting) return;
     setSubmitting(true);
     try {
@@ -27,6 +29,17 @@ export function CommentThread({ boardId }: { boardId: string }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!body.trim()) return;
+
+    requireAuth(() => postComment(), {
+      reason: 'comment',
+      title: 'Log in to post a comment',
+      description: 'Sign in to join the conversation and leave feedback.',
+    });
   }
 
   return (
@@ -64,7 +77,7 @@ export function CommentThread({ boardId }: { boardId: string }) {
         )}
       </ul>
 
-      <form onSubmit={(e) => void handleSubmit(e)} className="flex items-center gap-2">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <input
           type="text"
           value={body}

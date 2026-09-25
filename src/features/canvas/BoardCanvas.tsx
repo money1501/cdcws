@@ -12,6 +12,7 @@ import { useThemeStore } from '@/store/theme';
 import { useBoardSync, type ActiveCollaborator } from './useBoardSync';
 import { DocumentShapeUtil } from './documents/DocumentShapeUtil';
 import { DocumentToolbar } from './documents/DocumentToolbar';
+import { renderThumbnail } from './render-thumbnail';
 
 const customShapeUtils = [DocumentShapeUtil];
 
@@ -43,41 +44,14 @@ const tldrawComponents = {
 } as const;
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
-/** Feed previews are displayed small; this keeps the data URL well under 100KB. */
-const THUMBNAIL_WIDTH = 480;
-
-/**
- * Renders a small preview of the board for the Pinterest-style feed. Returns
- * undefined for an empty board, and never rejects — a failed preview must not
- * take the snapshot save down with it.
- */
-async function renderThumbnail(editor: Editor): Promise<string | undefined> {
-  try {
-    const ids = [...editor.getCurrentPageShapeIds()];
-    if (ids.length === 0) return undefined;
-
-    const bounds = editor.getCurrentPageBounds();
-    const scale = bounds ? Math.min(1, THUMBNAIL_WIDTH / bounds.width) : 1;
-
-    const { url } = await editor.toImageDataUrl(ids, {
-      format: 'jpeg',
-      quality: 0.7,
-      background: true,
-      darkMode: false,
-      padding: 16,
-      scale,
-    });
-    return url;
-  } catch {
-    return undefined;
-  }
-}
 
 interface BoardCanvasProps {
   boardId: string;
   initialSnapshot: Record<string, unknown>;
   /** Community view of someone else's board — no autosave, no editing. */
   readOnly?: boolean;
+  /** When true, board runs 100% in-memory without saving to server */
+  isLocalMode?: boolean;
   /** Hands the mounted editor up so siblings (share tray, imports) can drive it. */
   onEditorReady?: (editor: Editor) => void;
   /** Hands the list of currently active collaborators on the board up to the parent. */
@@ -85,13 +59,14 @@ interface BoardCanvasProps {
 }
 
 function isEmptySnapshot(snapshot: Record<string, unknown>): boolean {
-  return Object.keys(snapshot).length === 0;
+  return !snapshot || Object.keys(snapshot).length === 0;
 }
 
 export function BoardCanvas({
   boardId,
   initialSnapshot,
   readOnly = false,
+  isLocalMode = false,
   onEditorReady,
   onActiveCollaboratorsChange,
 }: BoardCanvasProps) {
@@ -101,10 +76,18 @@ export function BoardCanvas({
   // `dark` class and stays light while the rest of the app flips.
   const theme = useThemeStore((s) => s.theme);
 
+  const boardIdRef = useRef(boardId);
+  boardIdRef.current = boardId;
+
+  const isLocal = isLocalMode || boardId === 'local' || boardId === 'new';
+  const isLocalRef = useRef(isLocal);
+  isLocalRef.current = isLocal;
+
   const { activeCollaborators } = useBoardSync({
     boardId,
     editor,
     readOnly,
+    enabled: !isLocal && !readOnly,
   });
 
   useEffect(() => {
@@ -123,12 +106,21 @@ export function BoardCanvas({
 
       const unsubscribe = mountedEditor.store.listen(
         () => {
+          if (isLocalRef.current) return;
           window.clearTimeout(saveTimeoutRef.current);
           saveTimeoutRef.current = window.setTimeout(() => {
+            const currentBoardId = boardIdRef.current;
+            if (
+              isLocalRef.current ||
+              currentBoardId === 'local' ||
+              currentBoardId === 'new'
+            ) {
+              return;
+            }
             const snapshot = mountedEditor.getSnapshot();
             void renderThumbnail(mountedEditor).then((thumbnail) =>
               updateBoardSnapshot(
-                boardId,
+                currentBoardId,
                 snapshot as unknown as Record<string, unknown>,
                 thumbnail,
               ),
@@ -143,7 +135,7 @@ export function BoardCanvas({
         unsubscribe();
       };
     },
-    [boardId, readOnly, onEditorReady],
+    [readOnly, onEditorReady],
   );
 
   return (

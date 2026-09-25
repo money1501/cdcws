@@ -8,7 +8,7 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous, Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { CommunitiesService } from './communities.service';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import {
@@ -20,9 +20,10 @@ import {
 export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
+  @AllowAnonymous()
   @Get()
-  list(@Session() session: UserSession, @Query('q') q?: string) {
-    return this.communitiesService.list(session.user.id, q);
+  list(@Session() session?: UserSession, @Query('q') q?: string) {
+    return this.communitiesService.list(session?.user?.id ?? '', q);
   }
 
   @Get('mine')
@@ -35,14 +36,16 @@ export class CommunitiesController {
     return this.communitiesService.create(session.user.id, dto);
   }
 
+  @AllowAnonymous()
   @Get(':slug')
-  get(@Param('slug') slug: string, @Session() session: UserSession) {
-    return this.communitiesService.getBySlug(slug, session.user.id);
+  get(@Param('slug') slug: string, @Session() session?: UserSession) {
+    return this.communitiesService.getBySlug(slug, session?.user?.id ?? '');
   }
 
+  @AllowAnonymous()
   @Get(':slug/boards')
-  listBoards(@Param('slug') slug: string, @Session() session: UserSession) {
-    return this.communitiesService.listBoards(slug, session.user.id);
+  listBoards(@Param('slug') slug: string, @Session() session?: UserSession) {
+    return this.communitiesService.listBoards(slug, session?.user?.id ?? '');
   }
 
   @Put(':slug/membership')

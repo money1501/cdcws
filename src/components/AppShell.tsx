@@ -9,6 +9,8 @@ import {
   Settings,
   User,
   X,
+  LogIn,
+  PenTool,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
@@ -18,6 +20,7 @@ import { listMyCommunities } from '@/lib/communities-api';
 import { signOut, useSession } from '@/lib/auth-client';
 import { getMyProfile, getFollowing } from '@/lib/users-api';
 import { useNotifications } from '@/lib/notifications-context';
+import { useAuthModal } from '@/lib/auth-modal-context';
 import { Avatar } from '@/components/Avatar';
 import { CommunityAvatar } from '@/features/community/CommunityAvatar';
 import { DrawgonMark } from '@/components/DrawgonMark';
@@ -31,8 +34,7 @@ const PRIMARY_NAV = [
 ];
 
 /**
- * Persistent sidebar + header. New screens render inside this; the older
- * full-page screens still carry their own headers until they are migrated.
+ * Persistent sidebar + header shell.
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const [communities, setCommunities] = useState<CommunitySummary[]>([]);
@@ -40,28 +42,34 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const { data: session } = useSession();
+  const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
   const { notifications, unreadCount, markAllRead, markRead } = useNotifications();
 
   useEffect(() => {
+    if (!session?.user?.id) {
+      setCommunities([]);
+      setProfile(null);
+      setFollowing([]);
+      return;
+    }
+
     listMyCommunities()
       .then(setCommunities)
       .catch(() => setCommunities([]));
     getMyProfile()
       .then(setProfile)
       .catch(() => null);
-      
-    if (session?.user.id) {
-      getFollowing(session.user.id)
-        .then(setFollowing)
-        .catch(() => setFollowing([]));
-    }
-  }, [session?.user.id]);
+
+    getFollowing(session.user.id)
+      .then(setFollowing)
+      .catch(() => setFollowing([]));
+  }, [session?.user?.id]);
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
       isActive
-        ? 'bg-brand/10 text-brand'
+        ? 'bg-brand/10 text-brand dark:bg-brand/20'
         : 'text-neutral-600 hover:bg-neutral-200/60 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50'
     }`;
 
@@ -71,6 +79,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link to="/home" className="flex items-center gap-2 px-4 py-4">
           <DrawgonMark size={26} />
         </Link>
+
+        {/* Quick launch anonymous whiteboard */}
+        <div className="px-3 pb-3">
+          <Link
+            to="/board"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand/10 py-2 text-xs font-semibold text-brand transition hover:bg-brand/20 dark:bg-brand/20 dark:hover:bg-brand/30"
+          >
+            <PenTool size={14} />
+            <span>Open Canvas</span>
+          </Link>
+        </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2">
           {PRIMARY_NAV.map(({ to, label, icon: Icon, end }) => (
@@ -100,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               to="/communities"
               className="px-3 py-1.5 text-xs text-neutral-400 hover:text-brand"
             >
-              Join your first community
+              Browse communities
             </Link>
           )}
           {communities.map((c) => (
@@ -129,14 +148,27 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-neutral-200 p-2 dark:border-neutral-800">
-          <NavLink to="/profile" className={navClass}>
-            <User size={16} />
-            Profile
-          </NavLink>
-          <NavLink to="/settings" className={navClass}>
-            <Settings size={16} />
-            Settings
-          </NavLink>
+          {session?.user ? (
+            <>
+              <NavLink to="/profile" className={navClass}>
+                <User size={16} />
+                Profile
+              </NavLink>
+              <NavLink to="/settings" className={navClass}>
+                <Settings size={16} />
+                Settings
+              </NavLink>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openAuthModal({ reason: 'general' })}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-200/60 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+            >
+              <LogIn size={16} />
+              Log In / Sign Up
+            </button>
+          )}
         </div>
       </aside>
 
@@ -147,48 +179,82 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
 
           <div className="flex flex-1 items-center justify-end gap-2">
-            {/* Notifications bell */}
-            <button
-              type="button"
-              onClick={() => setNotifOpen((o) => !o)}
-              className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-              aria-label="Notifications"
-            >
-              <Bell size={17} />
-              {unreadCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
-            <ThemeToggle />
+            {/* Direct button to open whiteboard */}
             <Link
-              to="/profile"
-              title={session?.user.email}
-              className="rounded-full transition hover:opacity-80"
+              to="/board"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
-              <Avatar
-                name={session?.user.name || session?.user.email || '?'}
-                size="sm"
-                avatarUrl={profile?.avatarUrl}
-              />
+              <PenTool size={13} />
+              <span className="hidden sm:inline">New Canvas</span>
             </Link>
-            <button
-              type="button"
-              onClick={() => void signOut({})}
-              title="Sign out"
-              aria-label="Sign out"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-            >
-              <LogOut size={16} />
-            </button>
+
+            {/* Notifications bell (logged in only) */}
+            {session?.user && (
+              <button
+                type="button"
+                onClick={() => setNotifOpen((o) => !o)}
+                className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                aria-label="Notifications"
+              >
+                <Bell size={17} />
+                {unreadCount > 0 && (
+                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[9px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            <ThemeToggle />
+
+            {session?.user ? (
+              <>
+                <Link
+                  to="/profile"
+                  title={session.user.email}
+                  className="rounded-full transition hover:opacity-80"
+                >
+                  <Avatar
+                    name={session.user.name || session.user.email || '?'}
+                    size="sm"
+                    avatarUrl={profile?.avatarUrl}
+                  />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void signOut({})}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                >
+                  <LogOut size={16} />
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => openAuthModal({ reason: 'general', initialMode: 'login' })}
+                  className="rounded-full px-3.5 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal({ reason: 'general', initialMode: 'signup' })}
+                  className="rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-brand-hover"
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
           </div>
         </header>
 
         <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
 
         {/* ── Notifications slide-over ── */}
-        {notifOpen && (
+        {notifOpen && session?.user && (
           <>
             {/* Backdrop */}
             <div
@@ -232,7 +298,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                         type="button"
                         onClick={() => {
                           markRead(n.id);
-                          if (n.link) { setNotifOpen(false); navigate(n.link); }
+                          if (n.link) {
+                            setNotifOpen(false);
+                            navigate(n.link);
+                          }
                         }}
                         className={`w-full px-4 py-3.5 text-left transition hover:bg-neutral-50 dark:hover:bg-neutral-800 ${
                           !n.read ? 'bg-brand/5 dark:bg-brand/10' : ''

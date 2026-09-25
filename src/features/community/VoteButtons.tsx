@@ -1,6 +1,7 @@
 import { ArrowBigDown, ArrowBigUp } from 'lucide-react';
 import { useState } from 'react';
 import { removeVote, setVote } from '@/lib/community-api';
+import { useAuthModal } from '@/lib/auth-modal-context';
 
 interface VoteButtonsProps {
   boardId: string;
@@ -16,8 +17,9 @@ function formatScore(score: number) {
 
 export function VoteButtons({ boardId, score, myVote, onChange }: VoteButtonsProps) {
   const [pending, setPending] = useState(false);
+  const { requireAuth } = useAuthModal();
 
-  async function handleVote(value: 1 | -1) {
+  async function executeVote(value: 1 | -1) {
     if (pending) return;
     setPending(true);
     try {
@@ -31,13 +33,21 @@ export function VoteButtons({ boardId, score, myVote, onChange }: VoteButtonsPro
     }
   }
 
+  function handleVote(value: 1 | -1) {
+    requireAuth(() => executeVote(value), {
+      reason: 'upvote',
+      title: 'Log in to vote',
+      description: 'Sign in to upvote and support boards from the Drawgon community.',
+    });
+  }
+
   return (
     <div className="flex shrink-0 flex-col items-center gap-0.5 rounded-full bg-neutral-100 px-1 py-1.5 dark:bg-neutral-800/70">
       <button
         type="button"
         onClick={(e) => {
           e.preventDefault();
-          void handleVote(1);
+          handleVote(1);
         }}
         disabled={pending}
         aria-pressed={myVote === 1}
@@ -65,7 +75,7 @@ export function VoteButtons({ boardId, score, myVote, onChange }: VoteButtonsPro
         type="button"
         onClick={(e) => {
           e.preventDefault();
-          void handleVote(-1);
+          handleVote(-1);
         }}
         disabled={pending}
         aria-pressed={myVote === -1}

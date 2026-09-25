@@ -16,8 +16,10 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { JoinBoardPage } from '@/pages/JoinBoardPage';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedRoute } from '@/routes/ProtectedRoute';
+import { useSession } from '@/lib/auth-client';
+import { DrawgonLoader } from '@/components/DrawgonLoader';
 
-/** New screens render inside the persistent sidebar + header shell. */
+/** Protected screens render inside the persistent sidebar + header shell. */
 function shell(element: React.ReactNode) {
   return (
     <ProtectedRoute>
@@ -26,46 +28,73 @@ function shell(element: React.ReactNode) {
   );
 }
 
+/** Open screens render inside the shell without requiring immediate login. */
+function openShell(element: React.ReactNode) {
+  return <AppShell>{element}</AppShell>;
+}
+
+/**
+ * Root route:
+ * - Unauthenticated users get an immediate, responsive interactive whiteboard.
+ * - Authenticated users get their Dashboard ("My Boards").
+ */
+function RootRoute() {
+  const { data: session, isPending } = useSession();
+  if (isPending) return <DrawgonLoader />;
+  if (!session?.user) {
+    return <BoardPage />;
+  }
+  return <AppShell><DashboardPage /></AppShell>;
+}
+
 const router = createBrowserRouter([
   {
     path: '/',
-    element: shell(<DashboardPage />),
+    element: <RootRoute />,
+  },
+  {
+    path: '/board',
+    element: <BoardPage />,
+  },
+  {
+    path: '/boards/new',
+    element: <BoardPage />,
+  },
+  {
+    path: '/boards/local',
+    element: <BoardPage />,
   },
   {
     path: '/boards/:boardId',
-    element: (
-      <ProtectedRoute>
-        <BoardPage />
-      </ProtectedRoute>
-    ),
+    element: <BoardPage />,
+  },
+  {
+    path: '/dashboard',
+    element: shell(<DashboardPage />),
   },
   {
     path: '/community',
-    element: shell(<CommunityFeedPage />),
+    element: openShell(<CommunityFeedPage />),
   },
   {
     path: '/community/boards/:boardId',
-    element: (
-      <ProtectedRoute>
-        <CommunityBoardPage />
-      </ProtectedRoute>
-    ),
+    element: <CommunityBoardPage />,
   },
   {
     path: '/communities',
-    element: shell(<CommunitiesPage />),
+    element: openShell(<CommunitiesPage />),
   },
   {
     path: '/c/:slug',
-    element: shell(<CommunityPage />),
+    element: openShell(<CommunityPage />),
   },
   {
     path: '/home',
-    element: shell(<HomePage />),
+    element: openShell(<HomePage />),
   },
   {
     path: '/saved',
-    element: shell(<SavedPage />),
+    element: openShell(<SavedPage />),
   },
   {
     path: '/profile',
@@ -73,7 +102,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/users/:userId',
-    element: shell(<UserProfilePage />),
+    element: openShell(<UserProfilePage />),
   },
   {
     path: '/settings',

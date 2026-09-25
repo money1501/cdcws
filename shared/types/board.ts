@@ -29,6 +29,8 @@ export interface Board extends BoardSummary {
 
 export interface CreateBoardInput {
   title: string;
+  snapshot?: Record<string, unknown>;
+  thumbnail?: string;
 }
 
 export interface UpdateBoardSnapshotInput {

@@ -65,7 +65,8 @@ export class BoardsService {
     const board = this.boardsRepository.create({
       ownerId,
       title: dto.title,
-      snapshot: {},
+      snapshot: dto.snapshot || {},
+      thumbnailUrl: dto.thumbnail || null,
     });
     return this.boardsRepository.save(board);
   }

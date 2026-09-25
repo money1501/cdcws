@@ -71,8 +71,8 @@ export function CommunityFeedPage() {
       setLoading(true);
       try {
         const [boardResults, userResults] = await Promise.all([
-          listCommunityFeed(query.trim() || undefined),
-          isSearching ? searchUsers(query.trim()) : Promise.resolve<UserSearchResult[]>([]),
+          listCommunityFeed(query.trim() || undefined).catch(() => []),
+          isSearching ? searchUsers(query.trim()).catch(() => []) : Promise.resolve<UserSearchResult[]>([]),
         ]);
         setBoards(boardResults);
         setUsers(userResults);

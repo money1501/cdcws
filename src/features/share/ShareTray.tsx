@@ -19,6 +19,7 @@ import { useCallback, useState } from 'react';
 import type { Editor } from '@tldraw/tldraw';
 import { EmptyBoardError, exportPdf, exportPng, exportSvg } from './export-board';
 import { SHARE_TARGETS, openShareTarget, type ShareContext } from './share-targets';
+import { useAuthModal } from '@/lib/auth-modal-context';
 
 const TARGET_ICONS: Record<string, ComponentType<{ size?: number }>> = {
   whatsapp: MessageCircle,
@@ -43,17 +44,27 @@ export function ShareTray({ editor, title, ownerName, url }: ShareTrayProps) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { requireAuth } = useAuthModal();
 
   const shareUrl = url ?? window.location.href;
   const ctx: ShareContext = { url: shareUrl, title, ownerName };
 
   const handleCopy = useCallback(async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }, [shareUrl]);
+    requireAuth(
+      async () => {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1800);
+      },
+      {
+        reason: 'collaborate',
+        title: 'Save & Share Board',
+        description: 'Log in to save this board so you can share a persistent link with others.',
+      },
+    );
+  }, [shareUrl, requireAuth]);
 
-  const runExport = useCallback(
+  const executeExport = useCallback(
     async (kind: 'png' | 'svg' | 'pdf') => {
       if (!editor || busy) return;
       setBusy(kind);
@@ -71,6 +82,33 @@ export function ShareTray({ editor, title, ownerName, url }: ShareTrayProps) {
       }
     },
     [editor, busy, title],
+  );
+
+  const runExport = useCallback(
+    (kind: 'png' | 'svg' | 'pdf') => {
+      requireAuth(() => executeExport(kind), {
+        reason: 'export',
+        title: 'Log in to export drawing',
+        description: `Download your board as a high-resolution ${kind.toUpperCase()} file.`,
+      });
+    },
+    [requireAuth, executeExport],
+  );
+
+  const handleShareTarget = useCallback(
+    (target: (typeof SHARE_TARGETS)[number]) => {
+      requireAuth(
+        () => {
+          openShareTarget(target, ctx);
+        },
+        {
+          reason: 'collaborate',
+          title: 'Save & Share Board',
+          description: 'Log in to save this whiteboard so your share link is accessible.',
+        },
+      );
+    },
+    [requireAuth, ctx],
   );
 
   const rowClass =
@@ -95,82 +133,81 @@ export function ShareTray({ editor, title, ownerName, url }: ShareTrayProps) {
         </div>
 
         <div className="flex max-h-0 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-2 opacity-0 transition-all duration-300 ease-out group-hover:max-h-[70vh] group-hover:pb-2 group-hover:opacity-100 group-focus-within:max-h-[70vh] group-focus-within:pb-2 group-focus-within:opacity-100">
+          <button type="button" onClick={() => void handleCopy()} className={rowClass}>
+            <span className={iconWrap}>
+              {copied ? <Check size={16} className="text-emerald-500" /> : <Link2 size={16} />}
+            </span>
+            <span className={labelClass}>{copied ? 'Link copied' : 'Copy link'}</span>
+          </button>
 
-        <button type="button" onClick={() => void handleCopy()} className={rowClass}>
-          <span className={iconWrap}>
-            {copied ? <Check size={16} className="text-emerald-500" /> : <Link2 size={16} />}
-          </span>
-          <span className={labelClass}>{copied ? 'Link copied' : 'Copy link'}</span>
-        </button>
+          <div className="my-1 h-px shrink-0 bg-neutral-200 dark:bg-neutral-800" />
+          <div className={headingClass}>
+            <span className={iconWrap}>
+              <Download size={16} />
+            </span>
+            <span className={labelClass}>Download</span>
+          </div>
 
-        <div className="my-1 h-px shrink-0 bg-neutral-200 dark:bg-neutral-800" />
-        <div className={headingClass}>
-          <span className={iconWrap}>
-            <Download size={16} />
-          </span>
-          <span className={labelClass}>Download</span>
-        </div>
+          <button
+            type="button"
+            onClick={() => runExport('png')}
+            disabled={!editor || busy !== null}
+            className={rowClass}
+          >
+            <span className={iconWrap}>
+              <FileImage size={16} />
+            </span>
+            <span className={labelClass}>{busy === 'png' ? 'Exporting...' : 'PNG image'}</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => void runExport('png')}
-          disabled={!editor || busy !== null}
-          className={rowClass}
-        >
-          <span className={iconWrap}>
-            <FileImage size={16} />
-          </span>
-          <span className={labelClass}>{busy === 'png' ? 'Exporting...' : 'PNG image'}</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => runExport('svg')}
+            disabled={!editor || busy !== null}
+            className={rowClass}
+          >
+            <span className={iconWrap}>
+              <Shapes size={16} />
+            </span>
+            <span className={labelClass}>{busy === 'svg' ? 'Exporting...' : 'SVG vector'}</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => void runExport('svg')}
-          disabled={!editor || busy !== null}
-          className={rowClass}
-        >
-          <span className={iconWrap}>
-            <Shapes size={16} />
-          </span>
-          <span className={labelClass}>{busy === 'svg' ? 'Exporting...' : 'SVG vector'}</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => runExport('pdf')}
+            disabled={!editor || busy !== null}
+            className={rowClass}
+          >
+            <span className={iconWrap}>
+              <FileText size={16} />
+            </span>
+            <span className={labelClass}>{busy === 'pdf' ? 'Exporting...' : 'PDF document'}</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => void runExport('pdf')}
-          disabled={!editor || busy !== null}
-          className={rowClass}
-        >
-          <span className={iconWrap}>
-            <FileText size={16} />
-          </span>
-          <span className={labelClass}>{busy === 'pdf' ? 'Exporting...' : 'PDF document'}</span>
-        </button>
+          <div className="my-1 h-px shrink-0 bg-neutral-200 dark:bg-neutral-800" />
+          <div className={headingClass}>
+            <span className={iconWrap}>
+              <Send size={16} />
+            </span>
+            <span className={labelClass}>Send to</span>
+          </div>
 
-        <div className="my-1 h-px shrink-0 bg-neutral-200 dark:bg-neutral-800" />
-        <div className={headingClass}>
-          <span className={iconWrap}>
-            <Send size={16} />
-          </span>
-          <span className={labelClass}>Send to</span>
-        </div>
-
-        {SHARE_TARGETS.map((target) => {
-          const Icon = TARGET_ICONS[target.id] ?? Share2;
-          return (
-            <button
-              key={target.id}
-              type="button"
-              onClick={() => openShareTarget(target, ctx)}
-              className={rowClass}
-            >
-              <span className={iconWrap}>
-                <Icon size={16} />
-              </span>
-              <span className={labelClass}>{target.label}</span>
-            </button>
-          );
-        })}
+          {SHARE_TARGETS.map((target) => {
+            const Icon = TARGET_ICONS[target.id] ?? Share2;
+            return (
+              <button
+                key={target.id}
+                type="button"
+                onClick={() => handleShareTarget(target)}
+                className={rowClass}
+              >
+                <span className={iconWrap}>
+                  <Icon size={16} />
+                </span>
+                <span className={labelClass}>{target.label}</span>
+              </button>
+            );
+          })}
 
           {error && <p className="px-2.5 pt-1 text-xs text-red-500">{error}</p>}
         </div>

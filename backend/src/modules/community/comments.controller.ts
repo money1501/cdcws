@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous, Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
@@ -7,6 +7,7 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
+  @AllowAnonymous()
   @Get()
   list(@Param('id') boardId: string) {
     return this.commentsService.listForBoard(boardId);

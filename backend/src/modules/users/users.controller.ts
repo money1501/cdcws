@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Put, Query } from '@nestjs/common';
-import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
+import { AllowAnonymous, Session, type UserSession } from '@thallesp/nestjs-better-auth';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -8,6 +8,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   /** Search users by display name or username */
+  @AllowAnonymous()
   @Get('search')
   searchUsers(@Query('q') q: string) {
     if (!q || !q.trim()) return [];
@@ -30,12 +31,13 @@ export class UsersController {
   }
 
   /** Another user's public profile */
+  @AllowAnonymous()
   @Get(':userId/profile')
   getPublicProfile(
     @Param('userId') userId: string,
-    @Session() session: UserSession,
+    @Session() session?: UserSession,
   ) {
-    return this.usersService.getPublicProfileByUserId(userId, session.user.id);
+    return this.usersService.getPublicProfileByUserId(userId, session?.user?.id ?? '');
   }
 
   @Put(':userId/follow')
@@ -48,11 +50,13 @@ export class UsersController {
     return this.usersService.unfollowUser(session.user.id, userId);
   }
 
+  @AllowAnonymous()
   @Get(':userId/following')
   getFollowing(@Param('userId') userId: string) {
     return this.usersService.getFollowing(userId);
   }
 
+  @AllowAnonymous()
   @Get(':userId/followers')
   getFollowers(@Param('userId') userId: string) {
     return this.usersService.getFollowers(userId);

@@ -1,11 +1,17 @@
 import { Mic, MicOff, PhoneOff, Radio } from 'lucide-react';
 import { Avatar } from '@/components/Avatar';
 import { useVoiceRoom } from './useVoiceRoom';
+import { useAuthModal } from '@/lib/auth-modal-context';
 
 /** Discord-style voice dock for a board. */
 export function VoiceBar({ boardId }: { boardId: string }) {
+  const { requireAuth } = useAuthModal();
   const { status, error, peers, muted, selfLevel, join, leave, toggleMute } =
     useVoiceRoom(boardId);
+
+  if (boardId === 'local' || boardId === 'new' || !boardId) {
+    return null;
+  }
 
   if (status === 'idle' || status === 'error') {
     return (
@@ -17,7 +23,13 @@ export function VoiceBar({ boardId }: { boardId: string }) {
         )}
         <button
           type="button"
-          onClick={() => void join()}
+          onClick={() => {
+            requireAuth(() => void join(), {
+              reason: 'voice',
+              title: 'Log in for voice chat',
+              description: 'Sign in to talk with your collaborators in real-time.',
+            });
+          }}
           className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 shadow-md transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
         >
           <Mic size={14} />

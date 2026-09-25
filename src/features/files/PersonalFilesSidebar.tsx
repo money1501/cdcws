@@ -28,6 +28,8 @@ import { SpreadsheetViewer } from './viewers/SpreadsheetViewer';
 import { CodeTextViewer } from './viewers/CodeTextViewer';
 import { ImageViewer } from './viewers/ImageViewer';
 
+import { useAuthModal } from '@/lib/auth-modal-context';
+
 interface PersonalFilesSidebarProps {
   boardId: string;
 }
@@ -38,6 +40,7 @@ const MAX_WIDTH = 920;
 
 export function PersonalFilesSidebar({ boardId }: PersonalFilesSidebarProps) {
   const { data: session } = useSession();
+  const { requireAuth } = useAuthModal();
   const userId = session?.user?.id || 'local_user';
 
   const { isOpen, setIsOpen, toggleOpen, setFileCount } = usePersonalFilesStore();
@@ -80,12 +83,21 @@ export function PersonalFilesSidebar({ boardId }: PersonalFilesSidebarProps) {
     const arr = Array.from(fileList);
     if (arr.length === 0) return;
 
-    for (const file of arr) {
-      await savePersonalFile(boardId, file, userId);
-    }
-    await refreshFiles();
-    // Open sidebar if it was closed
-    setIsOpen(true);
+    requireAuth(
+      async () => {
+        for (const file of arr) {
+          await savePersonalFile(boardId, file, userId);
+        }
+        await refreshFiles();
+        // Open sidebar if it was closed
+        setIsOpen(true);
+      },
+      {
+        reason: 'upload',
+        title: 'Log in to upload files',
+        description: 'Sign in to upload, store, and view private files alongside your whiteboard.',
+      },
+    );
   };
 
   // Delete a file
@@ -284,7 +296,13 @@ export function PersonalFilesSidebar({ boardId }: PersonalFilesSidebarProps) {
               {/* Add file button */}
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  requireAuth(() => fileInputRef.current?.click(), {
+                    reason: 'upload',
+                    title: 'Log in to upload files',
+                    description: 'Sign in to upload, store, and view private files alongside your whiteboard.',
+                  });
+                }}
                 title="Add file (PDF, DOCX, XLSX, etc.)"
                 className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-xs font-semibold text-neutral-700 shadow-2xs transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
               >

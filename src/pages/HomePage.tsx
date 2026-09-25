@@ -28,7 +28,11 @@ export function HomePage() {
   const toast = useToast();
 
   useEffect(() => {
-    Promise.all([listBoards(), listSharedBoards(), listCommunityFeed()])
+    Promise.all([
+      listBoards().catch(() => []),
+      listSharedBoards().catch(() => []),
+      listCommunityFeed().catch(() => []),
+    ])
       .then(([mine, shared, feed]) => {
         setBoards(mine.slice(0, 4));
         setSharedBoards(shared);
