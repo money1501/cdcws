@@ -78,7 +78,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/community/boards/:boardId',
-    element: <CommunityBoardPage />,
+    element: openShell(<CommunityBoardPage />),
   },
   {
     path: '/communities',

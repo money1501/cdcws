@@ -28,7 +28,7 @@ export function CommunityCard({ community }: { community: CommunitySummary }) {
       to={`/c/${state.slug}`}
       className="group flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
     >
-      <CommunityAvatar slug={state.slug} />
+      <CommunityAvatar slug={state.slug} iconUrl={state.iconUrl} />
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-neutral-900 group-hover:text-brand dark:text-neutral-50">

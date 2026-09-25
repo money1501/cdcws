@@ -46,12 +46,9 @@ export class CommunityService {
     const boards = await this.boardsRepository
       .createQueryBuilder('board')
       .leftJoinAndSelect('board.owner', 'owner')
-      .where('board.visibility = :visibility', {
-        visibility: BoardVisibility.PUBLIC,
+      .where('board.visibility IN (:...visibilities)', {
+        visibilities: [BoardVisibility.PUBLIC, BoardVisibility.PUBLISHED],
       })
-      .andWhere(
-        '(board.published_from_id IS NOT NULL OR board.community_id IS NOT NULL)',
-      )
       .andWhere(
         term
           ? '(board.title ILIKE :term OR board.post_title ILIKE :term OR board.post_details ILIKE :term)'
@@ -70,10 +67,10 @@ export class CommunityService {
     if (savedIds.size === 0) return [];
 
     const boards = await this.boardsRepository.find({
-      where: {
-        id: In([...savedIds]),
-        visibility: BoardVisibility.PUBLIC,
-      },
+      where: [
+        { id: In([...savedIds]), visibility: BoardVisibility.PUBLIC },
+        { id: In([...savedIds]), visibility: BoardVisibility.PUBLISHED },
+      ],
       relations: { owner: true },
       order: { updatedAt: 'DESC' },
     });
@@ -82,7 +79,10 @@ export class CommunityService {
 
   async getPublicBoard(id: string): Promise<Board> {
     const board = await this.boardsRepository.findOne({
-      where: { id, visibility: BoardVisibility.PUBLIC },
+      where: [
+        { id, visibility: BoardVisibility.PUBLIC },
+        { id, visibility: BoardVisibility.PUBLISHED },
+      ],
       relations: { owner: true },
     });
     if (!board) {
@@ -101,27 +101,37 @@ export class CommunityService {
   }
 
   async duplicateBoard(id: string, currentUserId: string): Promise<Board> {
-    // Readable via ownership OR public visibility — matches "duplicate
-    // shared boards" from the community use case, but also lets an owner
-    // duplicate their own private board as a quick copy.
-    const board = await this.boardsRepository.findOne({ where: { id } });
+    // Readable via ownership OR public/published visibility
+    const board = await this.boardsRepository.findOne({
+      where: { id },
+      relations: { owner: true },
+    });
     if (
       !board ||
       (board.visibility !== BoardVisibility.PUBLIC &&
+        board.visibility !== BoardVisibility.PUBLISHED &&
         board.ownerId !== currentUserId)
     ) {
       throw new NotFoundException(`Board ${id} not found`);
     }
 
+    const isDifferentOwner = board.ownerId !== currentUserId;
+    const originalOwnerId = isDifferentOwner
+      ? (board.originalOwnerId || board.ownerId)
+      : null;
+    const originalOwnerName = isDifferentOwner
+      ? (board.originalOwnerName || board.owner?.name || 'original creator')
+      : null;
+
     const copy = this.boardsRepository.create({
       ownerId: currentUserId,
       title: `${board.title} (copy)`,
       visibility: BoardVisibility.PRIVATE,
-      // Verbatim JSON copy — same shape/page ids as the original. Safe
-      // since a duplicate never joins the same collaboration room as its
-      // source; true id-remapping is a stretch goal, not MVP (see
-      // PROGRESS.md).
+      anyoneCanEdit: false,
+      originalOwnerId,
+      originalOwnerName,
       snapshot: board.snapshot,
+      thumbnailUrl: board.thumbnailUrl,
     });
     return this.boardsRepository.save(copy);
   }
@@ -149,6 +159,10 @@ export class CommunityService {
       ownerId: board.ownerId,
       ownerName: board.owner?.name ?? 'Unknown',
       thumbnailUrl: board.thumbnailUrl,
+      visibility: board.visibility,
+      anyoneCanEdit: board.anyoneCanEdit,
+      originalOwnerId: board.originalOwnerId,
+      originalOwnerName: board.originalOwnerName,
       createdAt: board.createdAt,
       updatedAt: board.updatedAt,
       score: scores.get(board.id)?.score ?? 0,

@@ -1,6 +1,7 @@
 import { Check, ChevronDown, Hash } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { CommunitySummary } from '@shared/community';
+import { CommunityAvatar } from './CommunityAvatar';
 import { listMyCommunities, setBoardCommunity } from '@/lib/communities-api';
 
 interface CommunityPickerProps {
@@ -83,10 +84,13 @@ export function CommunityPicker({
               key={c.id}
               type="button"
               onClick={() => void choose(c.slug)}
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
-              d/{c.slug}
-              {communityId === c.id && <Check size={14} className="text-brand" />}
+              <div className="flex items-center gap-2 truncate">
+                <CommunityAvatar slug={c.slug} iconUrl={c.iconUrl} size="sm" />
+                <span className="truncate">d/{c.slug}</span>
+              </div>
+              {communityId === c.id && <Check size={14} className="text-brand shrink-0" />}
             </button>
           ))}
         </div>

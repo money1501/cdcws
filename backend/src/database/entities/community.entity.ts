@@ -26,6 +26,9 @@ export class Community {
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 
+  @Column({ type: 'text', name: 'icon_url', nullable: true })
+  iconUrl!: string | null;
+
   @Index()
   @Column({ type: 'text', name: 'created_by' })
   createdBy!: string;

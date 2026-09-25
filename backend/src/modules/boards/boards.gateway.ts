@@ -74,18 +74,31 @@ export class BoardsGateway implements OnGatewayDisconnect {
     if (!board) return { error: 'Board not found' };
 
     let role: 'owner' | 'editor' | 'viewer' = 'viewer';
-    if (user && board.ownerId === user.id) {
+    if (board.visibility === 'published') {
+      role = 'viewer';
+    } else if (user && board.ownerId === user.id) {
       role = 'owner';
+    } else if (board.visibility === 'public') {
+      if (board.anyoneCanEdit) {
+        role = 'editor';
+      } else if (user) {
+        const collab = await this.collabsRepo.findOne({
+          where: { boardId, userId: user.id },
+        });
+        role = collab ? collab.role : 'viewer';
+      } else {
+        role = 'viewer';
+      }
     } else if (user) {
       const collab = await this.collabsRepo.findOne({
         where: { boardId, userId: user.id },
       });
       if (collab) {
         role = collab.role;
-      } else if (board.visibility !== 'public') {
+      } else {
         return { error: 'Unauthorized' };
       }
-    } else if (board.visibility !== 'public') {
+    } else {
       return { error: 'Unauthorized' };
     }
 
@@ -125,7 +138,7 @@ export class BoardsGateway implements OnGatewayDisconnect {
 
     const member = this.activeRooms.get(boardId)?.get(client.id);
     if (member && member.role === 'viewer') {
-      // Viewers are read-only and cannot broadcast changes
+      // Viewers and published boards are read-only and cannot broadcast changes
       return;
     }
 

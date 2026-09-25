@@ -21,22 +21,41 @@ function gradientFor(slug: string) {
 
 interface CommunityAvatarProps {
   slug: string;
-  size?: 'sm' | 'md' | 'lg';
+  iconUrl?: string | null;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  className?: string;
 }
 
 const DIMS = {
   sm: 'h-7 w-7 text-xs',
   md: 'h-10 w-10 text-sm',
   lg: 'h-14 w-14 text-lg',
+  xl: 'h-20 w-20 text-2xl',
 } as const;
 
-export function CommunityAvatar({ slug, size = 'md' }: CommunityAvatarProps) {
+export function CommunityAvatar({
+  slug,
+  iconUrl,
+  size = 'md',
+  className,
+}: CommunityAvatarProps) {
+  if (iconUrl) {
+    return (
+      <img
+        src={iconUrl}
+        alt={`d/${slug}`}
+        className={`inline-block shrink-0 rounded-full object-cover ${DIMS[size]} ${className ?? ''}`}
+      />
+    );
+  }
+
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br font-bold text-white ${gradientFor(slug)} ${DIMS[size]}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br font-bold text-white ${gradientFor(slug)} ${DIMS[size]} ${className ?? ''}`}
     >
       {slug.charAt(0).toUpperCase()}
     </span>
   );
 }
+

@@ -124,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
           {communities.map((c) => (
             <NavLink key={c.id} to={`/c/${c.slug}`} className={navClass}>
-              <CommunityAvatar slug={c.slug} size="sm" />
+              <CommunityAvatar slug={c.slug} iconUrl={c.iconUrl} size="sm" />
               <span className="truncate">d/{c.slug}</span>
             </NavLink>
           ))}

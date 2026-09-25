@@ -3,6 +3,7 @@ import type { Board } from '@shared/board';
 import type {
   CommunitySummary,
   CreateCommunityInput,
+  UpdateCommunityInput,
   FeedItem,
 } from '@shared/community';
 
@@ -27,6 +28,14 @@ export async function createCommunity(
   input: CreateCommunityInput,
 ): Promise<CommunitySummary> {
   const res = await apiClient.post<CommunitySummary>('/communities', input);
+  return res.data;
+}
+
+export async function updateCommunity(
+  slug: string,
+  input: UpdateCommunityInput,
+): Promise<CommunitySummary> {
+  const res = await apiClient.patch<CommunitySummary>(`/communities/${slug}`, input);
   return res.data;
 }
 

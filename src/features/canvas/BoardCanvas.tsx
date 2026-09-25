@@ -7,6 +7,7 @@ import {
   type TLEditorSnapshot,
 } from '@tldraw/tldraw';
 import '@tldraw/tldraw/tldraw.css';
+import { Copy } from 'lucide-react';
 import { updateBoardSnapshot } from '@/lib/boards-api';
 import { useThemeStore } from '@/store/theme';
 import { useBoardSync, type ActiveCollaborator } from './useBoardSync';
@@ -43,15 +44,23 @@ const tldrawComponents = {
   Toolbar: CustomToolbar,
 } as const;
 
+/** Read-only mode hides editing toolbars and panels */
+const readOnlyComponents = {
+  Toolbar: () => null,
+  StylePanel: () => null,
+} as const;
+
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 
 interface BoardCanvasProps {
   boardId: string;
   initialSnapshot: Record<string, unknown>;
-  /** Community view of someone else's board — no autosave, no editing. */
+  /** Community view / read-only access — no autosave, no editing tools. */
   readOnly?: boolean;
   /** When true, board runs 100% in-memory without saving to server */
   isLocalMode?: boolean;
+  /** Watermark attribution text for non-owner duplicates */
+  watermarkText?: string | null;
   /** Hands the mounted editor up so siblings (share tray, imports) can drive it. */
   onEditorReady?: (editor: Editor) => void;
   /** Hands the list of currently active collaborators on the board up to the parent. */
@@ -67,6 +76,7 @@ export function BoardCanvas({
   initialSnapshot,
   readOnly = false,
   isLocalMode = false,
+  watermarkText = null,
   onEditorReady,
   onActiveCollaboratorsChange,
 }: BoardCanvasProps) {
@@ -118,7 +128,7 @@ export function BoardCanvas({
               return;
             }
             const snapshot = mountedEditor.getSnapshot();
-            void renderThumbnail(mountedEditor).then((thumbnail) =>
+            void renderThumbnail(mountedEditor, watermarkText).then((thumbnail) =>
               updateBoardSnapshot(
                 currentBoardId,
                 snapshot as unknown as Record<string, unknown>,
@@ -135,11 +145,11 @@ export function BoardCanvas({
         unsubscribe();
       };
     },
-    [readOnly, onEditorReady],
+    [readOnly, watermarkText, onEditorReady],
   );
 
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full">
       <Tldraw
         snapshot={
           isEmptySnapshot(initialSnapshot)
@@ -148,10 +158,20 @@ export function BoardCanvas({
         }
         colorScheme={theme}
         shapeUtils={customShapeUtils}
-        components={readOnly ? undefined : (tldrawComponents as any)}
+        components={readOnly ? (readOnlyComponents as any) : (tldrawComponents as any)}
         onMount={handleMount}
         licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
       />
+
+      {/* Attribution watermark for non-owner duplicates */}
+      {watermarkText && (
+        <div className="pointer-events-none absolute bottom-4 left-4 z-[400] flex items-center gap-1.5 rounded-full border border-neutral-200/80 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-neutral-600 shadow-md backdrop-blur-xs dark:border-neutral-800/80 dark:bg-neutral-900/90 dark:text-neutral-300">
+          <Copy size={12} className="text-brand" />
+          <span>
+            Duplicated from <strong>{watermarkText}</strong>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

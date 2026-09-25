@@ -9,6 +9,10 @@ export interface FeedItem {
   ownerId: string;
   ownerName: string;
   thumbnailUrl: string | null;
+  visibility?: string;
+  anyoneCanEdit?: boolean;
+  originalOwnerId?: string | null;
+  originalOwnerName?: string | null;
   createdAt: string;
   updatedAt: string;
   score: number;
@@ -56,6 +60,7 @@ export interface CommunitySummary {
   slug: string;
   name: string;
   description: string | null;
+  iconUrl: string | null;
   memberCount: number;
   boardCount: number;
   joined: boolean;
@@ -67,4 +72,12 @@ export interface CreateCommunityInput {
   slug: string;
   name: string;
   description?: string;
+  iconUrl?: string;
 }
+
+export interface UpdateCommunityInput {
+  name?: string;
+  description?: string;
+  iconUrl?: string;
+}
+
