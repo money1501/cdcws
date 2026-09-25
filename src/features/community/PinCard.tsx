@@ -99,27 +99,26 @@ export function PinCard({
   }
 
   return (
-    <Link
-      to={`/community/boards/${item.id}`}
-      className="group mb-4 block break-inside-avoid"
-    >
+    <div className="group mb-4 block break-inside-avoid">
       <div className="relative overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-900">
-        {item.thumbnailUrl ? (
-          <img
-            src={item.thumbnailUrl}
-            alt={item.title}
-            loading="lazy"
-            /* Capped so one very tall board (a stack of imported PDF pages,
-               say) cannot swallow an entire masonry column. */
-            className="max-h-[420px] w-full object-cover object-top transition duration-300 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <div className="flex aspect-4/3 items-center justify-center bg-gradient-to-br from-violet-500/15 to-cyan-500/15">
-            <span className="px-4 text-center text-sm font-medium text-neutral-500">
-              {item.title}
-            </span>
-          </div>
-        )}
+        <Link to={`/community/boards/${item.id}`} className="block">
+          {item.thumbnailUrl ? (
+            <img
+              src={item.thumbnailUrl}
+              alt={item.title}
+              loading="lazy"
+              /* Capped so one very tall board (a stack of imported PDF pages,
+                 say) cannot swallow an entire masonry column. */
+              className="max-h-[420px] w-full object-cover object-top transition duration-300 group-hover:scale-[1.03]"
+            />
+          ) : (
+            <div className="flex aspect-4/3 items-center justify-center bg-gradient-to-br from-violet-500/15 to-cyan-500/15">
+              <span className="px-4 text-center text-sm font-medium text-neutral-500">
+                {item.title}
+              </span>
+            </div>
+          )}
+        </Link>
 
         {/* Hover scrim + actions */}
         <div className="pointer-events-none absolute inset-0 bg-neutral-950/0 transition group-hover:bg-neutral-950/35" />
@@ -175,9 +174,12 @@ export function PinCard({
       </div>
 
       <div className="mt-2 px-1">
-        <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+        <Link
+          to={`/community/boards/${item.id}`}
+          className="block truncate text-sm font-semibold text-neutral-900 transition hover:text-brand dark:text-neutral-50 dark:hover:text-brand"
+        >
           {item.title}
-        </p>
+        </Link>
         <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
           Board: {item.boardTitle}
         </p>
@@ -189,7 +191,6 @@ export function PinCard({
         <div className="mt-1 flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
           <Link
             to={`/users/${item.ownerId}`}
-            onClick={(e) => e.stopPropagation()}
             className="flex items-center gap-1.5 transition hover:text-brand"
           >
             <Avatar name={item.ownerName} size="sm" />
@@ -200,6 +201,6 @@ export function PinCard({
           {item.commentCount}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
