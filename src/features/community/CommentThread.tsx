@@ -7,6 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { useSession } from "@/lib/auth-client";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useConfirm } from "@/components/dialog";
 
 export function CommentThread({ boardId }: { boardId: string }) {
   const [comments, setComments] = useState<Comment[]>([]);
@@ -16,6 +17,7 @@ export function CommentThread({ boardId }: { boardId: string }) {
   const { data: session } = useSession();
   const { requireAuth } = useAuthModal();
   const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     listComments(boardId)
@@ -37,7 +39,13 @@ export function CommentThread({ boardId }: { boardId: string }) {
   }
 
   async function handleDeleteComment(commentId: string) {
-    if (!window.confirm("Delete this comment? This cannot be undone")) return;
+    const confirmed = await confirm({
+      title: "Delete this comment?",
+      message: "This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     try {
       await deleteComment(boardId, commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));

@@ -23,6 +23,7 @@ import { Avatar } from '@/components/Avatar';
 import { PinCard } from '@/features/community/PinCard';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
 import { useToast } from '@/components/toast/ToastProvider';
+import { useConfirm } from '@/components/dialog';
 
 type Tab = 'creations' | 'saved';
 type FollowModal = 'followers' | 'following' | null;
@@ -30,6 +31,7 @@ type FollowModal = 'followers' | 'following' | null;
 export function ProfilePage() {
   const { data: session } = useSession();
   const toast = useToast();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -127,7 +129,13 @@ export function ProfilePage() {
   async function handleDeleteBoard(e: React.MouseEvent, boardId: string, title: string) {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
+    const confirmed = await confirm({
+      title: 'Delete board?',
+      message: `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+      confirmText: 'Delete Board',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
       await deleteBoard(boardId);

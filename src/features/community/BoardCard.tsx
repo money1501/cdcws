@@ -8,6 +8,7 @@ import { addBookmark, removeBookmark } from "@/lib/community-api";
 import { deleteBoard } from "@/lib/boards-api";
 import { useSession } from "@/lib/auth-client";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useConfirm } from "@/components/dialog";
 
 export function BoardCard({
   item,
@@ -25,6 +26,7 @@ export function BoardCard({
   const [deleting, setDeleting] = useState(false);
   const { data: session } = useSession();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const canDelete = Boolean(
     session?.user &&
@@ -52,7 +54,13 @@ export function BoardCard({
     e.preventDefault();
     e.stopPropagation();
     if (deleting) return;
-    if (!window.confirm("Delete this post? This cannot be undone")) {
+    const confirmed = await confirm({
+      title: "Delete this post?",
+      message: "This action cannot be undone.",
+      confirmText: "Delete",
+      variant: "danger",
+    });
+    if (!confirmed) {
       return;
     }
     setDeleting(true);

@@ -27,6 +27,7 @@ import { Avatar } from "@/components/Avatar";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useSession } from "@/lib/auth-client";
+import { useConfirm } from "@/components/dialog";
 
 export function CommunityBoardPage() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -38,6 +39,7 @@ export function CommunityBoardPage() {
   const { data: session } = useSession();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!boardId) return;
@@ -94,7 +96,13 @@ export function CommunityBoardPage() {
 
   async function handleDeletePost() {
     if (!item || deleting) return;
-    if (!window.confirm("Delete this post? This cannot be undone")) return;
+    const confirmed = await confirm({
+      title: "Delete this post?",
+      message: "This post and all its comments will be permanently removed. This action cannot be undone.",
+      confirmText: "Delete Post",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await deleteBoard(item.id);

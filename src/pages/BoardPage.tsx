@@ -51,6 +51,7 @@ import type { ActiveCollaborator } from "@/features/canvas/useBoardSync";
 import { useSession } from "@/lib/auth-client";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useConfirm } from "@/components/dialog";
 import { Avatar } from "@/components/Avatar";
 
 const DEFAULT_LOCAL_BOARD: Board = {
@@ -112,6 +113,7 @@ export function BoardPage() {
   const { data: session } = useSession();
   const { requireAuth, openAuthModal } = useAuthModal();
   const toast = useToast();
+  const confirm = useConfirm();
   const { toggleOpen: toggleFilesOpen, fileCount, isOpen: filesSidebarOpen } = usePersonalFilesStore();
 
   const isOwner =
@@ -440,8 +442,13 @@ export function BoardPage() {
 
   async function handleDelete() {
     if (!board || deleting) return;
-    if (!window.confirm(`Delete “${board.title}”? This cannot be undone.`))
-      return;
+    const confirmed = await confirm({
+      title: `Delete “${board.title}”?`,
+      message: "This whiteboard will be permanently deleted and cannot be recovered.",
+      confirmText: "Delete Board",
+      variant: "danger",
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await deleteBoard(board.id);

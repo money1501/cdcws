@@ -9,6 +9,7 @@ import { useSession } from '@/lib/auth-client';
 import { PinCard } from '@/features/community/PinCard';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
 import { useToast } from '@/components/toast/ToastProvider';
+import { useConfirm } from '@/components/dialog';
 
 function greeting() {
   const h = new Date().getHours();
@@ -26,6 +27,7 @@ export function HomePage() {
   const { data: session } = useSession();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     Promise.all([
@@ -57,7 +59,13 @@ export function HomePage() {
   async function handleDeleteBoard(e: React.MouseEvent, boardId: string, title: string) {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
+    const confirmed = await confirm({
+      title: 'Delete board?',
+      message: `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+      confirmText: 'Delete Board',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
       await deleteBoard(boardId);

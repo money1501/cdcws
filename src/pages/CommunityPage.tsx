@@ -15,6 +15,7 @@ import { CommunityAvatar } from "@/features/community/CommunityAvatar";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useSession } from "@/lib/auth-client";
+import { useConfirm } from "@/components/dialog";
 
 export function CommunityPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -33,6 +34,7 @@ export function CommunityPage() {
   const { data: session } = useSession();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!slug) return;
@@ -104,8 +106,13 @@ export function CommunityPage() {
 
   async function handleDelete() {
     if (!community || deleting) return;
-    if (!window.confirm(`Delete d/${community.slug}? This cannot be undone.`))
-      return;
+    const confirmed = await confirm({
+      title: `Delete d/${community.slug}?`,
+      message: 'This community and its settings will be permanently removed. This action cannot be undone.',
+      confirmText: 'Delete Community',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setDeleting(true);
     try {
       await deleteCommunity(community.slug);

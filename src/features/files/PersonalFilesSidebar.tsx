@@ -29,6 +29,7 @@ import { CodeTextViewer } from './viewers/CodeTextViewer';
 import { ImageViewer } from './viewers/ImageViewer';
 
 import { useAuthModal } from '@/lib/auth-modal-context';
+import { useConfirm } from '@/components/dialog';
 
 interface PersonalFilesSidebarProps {
   boardId: string;
@@ -41,6 +42,7 @@ const MAX_WIDTH = 920;
 export function PersonalFilesSidebar({ boardId }: PersonalFilesSidebarProps) {
   const { data: session } = useSession();
   const { requireAuth } = useAuthModal();
+  const confirm = useConfirm();
   const userId = session?.user?.id || 'local_user';
 
   const { isOpen, setIsOpen, toggleOpen, setFileCount } = usePersonalFilesStore();
@@ -103,7 +105,13 @@ export function PersonalFilesSidebar({ boardId }: PersonalFilesSidebarProps) {
   // Delete a file
   const handleDeleteFile = async (e: React.MouseEvent, fileId: string) => {
     e.stopPropagation();
-    if (!window.confirm('Delete this private file?')) return;
+    const confirmed = await confirm({
+      title: 'Delete private file?',
+      message: 'Are you sure you want to delete this private file? This action cannot be undone.',
+      confirmText: 'Delete File',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     await deletePersonalFile(fileId);
     await refreshFiles();
   };

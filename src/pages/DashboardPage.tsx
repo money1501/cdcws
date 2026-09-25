@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createBoard, deleteBoard, duplicateBoard, listBoards, listSharedBoards } from '@/lib/boards-api';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
 import { useToast } from '@/components/toast/ToastProvider';
+import { useConfirm } from '@/components/dialog';
 import type { BoardSummary } from '@shared/board';
 
 export function DashboardPage() {
@@ -13,6 +14,7 @@ export function DashboardPage() {
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
     Promise.all([listBoards(), listSharedBoards()])
@@ -50,7 +52,13 @@ export function DashboardPage() {
   async function handleDeleteBoard(e: React.MouseEvent, boardId: string, title: string) {
     e.preventDefault();
     e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
+    const confirmed = await confirm({
+      title: 'Delete board?',
+      message: `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+      confirmText: 'Delete Board',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
       await deleteBoard(boardId);
