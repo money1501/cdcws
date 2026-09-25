@@ -87,85 +87,135 @@ export function DashboardPage() {
           </div>
         )}
 
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+        <div className="columns-2 gap-4 sm:columns-3 lg:columns-4">
           {boards.map((board) => (
-            <li key={board.id} className="relative group">
-              <Link
-                to={`/boards/${board.id}`}
-                className="group/card flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:hover:border-neutral-700"
-              >
-                <Avatar name={board.title} />
-                <div className="min-w-0 flex-1 pr-16">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-medium text-neutral-900 group-hover/card:text-brand dark:text-neutral-50">
-                      {board.title}
-                    </p>
-                    {board.visibility === 'public' && (
-                      <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
-                        Public
+            <div key={board.id} className="group mb-4 block break-inside-avoid">
+              <div className="relative overflow-hidden rounded-2xl bg-neutral-100 shadow-sm transition duration-200 hover:shadow-md dark:bg-neutral-900">
+                <Link to={`/boards/${board.id}`} className="block">
+                  {board.thumbnailUrl ? (
+                    <img
+                      src={board.thumbnailUrl}
+                      alt={board.title}
+                      loading="lazy"
+                      className="max-h-[420px] w-full object-cover object-top transition duration-300 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <div className="flex aspect-4/3 items-center justify-center bg-gradient-to-br from-violet-500/15 via-brand/10 to-cyan-500/15 p-4">
+                      <span className="text-center text-sm font-medium text-neutral-600 dark:text-neutral-400 line-clamp-3">
+                        {board.title}
                       </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Updated {new Date(board.updatedAt).toLocaleString()}
-                  </p>
+                    </div>
+                  )}
+                </Link>
+
+                {/* Hover scrim */}
+                <div className="pointer-events-none absolute inset-0 bg-neutral-950/0 transition group-hover:bg-neutral-950/30" />
+
+                {/* Top-left visibility badge */}
+                <div className="absolute left-2.5 top-2.5 pointer-events-none">
+                  {board.visibility === 'public' ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[11px] font-medium text-white shadow-sm backdrop-blur-xs">
+                      Public
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-neutral-900/70 px-2 py-0.5 text-[11px] font-medium text-neutral-200 shadow-sm backdrop-blur-xs">
+                      Private
+                    </span>
+                  )}
                 </div>
-              </Link>
-              <button
-                type="button"
-                onClick={(e) => void handleDuplicateBoard(e, board.id)}
-                title="Make a copy"
-                className="absolute right-12 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 opacity-80 transition group-hover:opacity-100 hover:bg-neutral-100 hover:text-neutral-700 sm:opacity-0 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-              >
-                <Copy size={15} />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => void handleDeleteBoard(e, board.id, board.title)}
-                title="Delete board"
-                className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 opacity-80 transition group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 sm:opacity-0 dark:text-neutral-500 dark:hover:bg-red-500/15 dark:hover:text-red-400"
-              >
-                <Trash2 size={15} />
-              </button>
-            </li>
+
+                {/* Top-right action buttons */}
+                <div className="absolute right-2 top-2 flex items-center gap-1.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+                  <button
+                    type="button"
+                    onClick={(e) => void handleDuplicateBoard(e, board.id)}
+                    title="Make a copy"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-brand dark:bg-neutral-900/95 dark:text-neutral-200 dark:hover:text-brand"
+                  >
+                    <Copy size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => void handleDeleteBoard(e, board.id, board.title)}
+                    title="Delete board"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow-md backdrop-blur-sm transition hover:bg-red-50 hover:text-red-600 dark:bg-neutral-900/95 dark:text-neutral-200 dark:hover:bg-red-950/60 dark:hover:text-red-400"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Card details below thumbnail */}
+              <div className="mt-2 px-1">
+                <Link to={`/boards/${board.id}`} className="group-hover:text-brand">
+                  <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-50 transition group-hover:text-brand">
+                    {board.title}
+                  </p>
+                </Link>
+                <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                  Updated {new Date(board.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
 
         {sharedBoards.length > 0 && (
           <div className="mt-12">
             <h2 className="mb-6 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
               Shared with me
             </h2>
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+            <div className="columns-2 gap-4 sm:columns-3 lg:columns-4">
               {sharedBoards.map((board) => (
-                <li key={board.id} className="relative group">
-                  <Link
-                    to={`/boards/${board.id}`}
-                    className="group/card flex items-start gap-3 rounded-xl border border-brand/20 bg-brand/5 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md dark:bg-brand/10"
-                  >
-                    <Avatar name={board.title} />
-                    <div className="min-w-0 flex-1 pr-9">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-medium text-neutral-900 group-hover/card:text-brand dark:text-neutral-50">
-                          {board.title}
-                        </p>
-                      </div>
-                      <p className="mt-1 text-xs text-neutral-500">
-                        Updated {new Date(board.updatedAt).toLocaleString()}
-                      </p>
+                <div key={board.id} className="group mb-4 block break-inside-avoid">
+                  <div className="relative overflow-hidden rounded-2xl bg-neutral-100 shadow-sm transition duration-200 hover:shadow-md dark:bg-neutral-900">
+                    <Link to={`/boards/${board.id}`} className="block">
+                      {board.thumbnailUrl ? (
+                        <img
+                          src={board.thumbnailUrl}
+                          alt={board.title}
+                          loading="lazy"
+                          className="max-h-[420px] w-full object-cover object-top transition duration-300 group-hover:scale-[1.03]"
+                        />
+                      ) : (
+                        <div className="flex aspect-4/3 items-center justify-center bg-gradient-to-br from-violet-500/15 via-brand/10 to-cyan-500/15 p-4">
+                          <span className="text-center text-sm font-medium text-neutral-600 dark:text-neutral-400 line-clamp-3">
+                            {board.title}
+                          </span>
+                        </div>
+                      )}
+                    </Link>
+
+                    {/* Hover scrim */}
+                    <div className="pointer-events-none absolute inset-0 bg-neutral-950/0 transition group-hover:bg-neutral-950/30" />
+
+                    {/* Top-right action buttons */}
+                    <div className="absolute right-2 top-2 flex items-center gap-1.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+                      <button
+                        type="button"
+                        onClick={(e) => void handleDuplicateBoard(e, board.id)}
+                        title="Make a copy"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-neutral-700 shadow-md backdrop-blur-sm transition hover:bg-white hover:text-brand dark:bg-neutral-900/95 dark:text-neutral-200 dark:hover:text-brand"
+                      >
+                        <Copy size={14} />
+                      </button>
                     </div>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={(e) => void handleDuplicateBoard(e, board.id)}
-                    title="Make a copy"
-                    className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 opacity-80 transition group-hover:opacity-100 hover:bg-brand/15 hover:text-brand sm:opacity-0 dark:text-neutral-500 dark:hover:bg-brand/20 dark:hover:text-brand"
-                  >
-                    <Copy size={15} />
-                  </button>
-                </li>
+                  </div>
+
+                  {/* Card details below thumbnail */}
+                  <div className="mt-2 px-1">
+                    <Link to={`/boards/${board.id}`} className="group-hover:text-brand">
+                      <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-50 transition group-hover:text-brand">
+                        {board.title}
+                      </p>
+                    </Link>
+                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      Updated {new Date(board.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
     </div>

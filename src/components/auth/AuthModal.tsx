@@ -43,7 +43,7 @@ const REASON_CONFIG: Record<
     icon: Globe,
     badge: 'Publish to Community',
     title: 'Log in to publish your board',
-    description: 'Share your work with the Drawgon community and get feedback from creators worldwide.',
+    description: 'Share your work with the Boared community and get feedback from creators worldwide.',
   },
   collaborate: {
     icon: Users,
@@ -84,7 +84,7 @@ const REASON_CONFIG: Record<
   general: {
     icon: Sparkles,
     badge: 'Account Required',
-    title: 'Log in to Drawgon',
+    title: 'Log in to Boared',
     description: 'Create, collaborate, and share dynamic whiteboards effortlessly.',
   },
 };

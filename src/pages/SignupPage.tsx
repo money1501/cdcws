@@ -37,7 +37,7 @@ export function SignupPage() {
         <div className="mb-6 flex flex-col items-center gap-2">
           <DrawgonMark size={44} />
           <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-            Create your Drawgon account
+            Create your Boared account
           </h1>
         </div>
 

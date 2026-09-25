@@ -25,7 +25,7 @@ function UnreachableBackend({ detail }: { detail: string }) {
         Can't reach the server
       </h1>
       <p className="max-w-md text-sm text-neutral-500 dark:text-neutral-400">
-        Drawgon couldn't confirm your session with{' '}
+        Boared couldn't confirm your session with{' '}
         <code className="rounded bg-neutral-200 px-1 py-0.5 text-xs dark:bg-neutral-800">
           {API_BASE_URL}
         </code>

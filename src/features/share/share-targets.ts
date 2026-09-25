@@ -12,8 +12,8 @@ export interface ShareContext {
 
 function blurb({ title, ownerName }: ShareContext) {
   return ownerName
-    ? `"${title}" by ${ownerName} — on Drawgon`
-    : `"${title}" — on Drawgon`;
+    ? `"${title}" by ${ownerName} — on Boared`
+    : `"${title}" — on Boared`;
 }
 
 export interface ShareTarget {

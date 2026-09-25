@@ -6,7 +6,7 @@ export function DrawgonWordmark({ size = 28, to }: { size?: number; to?: string 
     <>
       <DrawgonMark size={size} />
       <span className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-        Drawgon
+        Boared
       </span>
     </>
   );
