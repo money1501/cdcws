@@ -13,6 +13,7 @@ import {
   X,
   Sparkles,
   LogIn,
+  PenTool,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -83,7 +84,8 @@ export function BoardPage() {
   const [deleting, setDeleting] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [activeCollaborators, setActiveCollaborators] = useState<ActiveCollaborator[]>([]);
-  const [visibilityConfirmOpen, setVisibilityConfirmOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [updatingVisibility, setUpdatingVisibility] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishForm, setPublishForm] = useState({
     postTitle: "",
@@ -98,7 +100,6 @@ export function BoardPage() {
   const [communitySearch, setCommunitySearch] = useState("");
   const [selectedCommunities, setSelectedCommunities] = useState<string[]>([]);
 
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteRole, setInviteRole] = useState<"editor" | "viewer">("editor");
   const [inviting, setInviting] = useState(false);
@@ -114,6 +115,15 @@ export function BoardPage() {
   const { toggleOpen: toggleFilesOpen, fileCount, isOpen: filesSidebarOpen } = usePersonalFilesStore();
 
   const isOwner = session?.user?.id === board?.ownerId || board?.id === "local";
+  const isPublished = board?.visibility === "published";
+  const isPublic = board?.visibility === "public";
+  const canEdit =
+    !isPublished &&
+    (isOwner ||
+      board?.id === "local" ||
+      board?.anyoneCanEdit ||
+      board?.role === "editor");
+  const readOnly = !canEdit;
   const isLocalMode = !board || board.id === "local" || !session?.user;
   const isUpgradingRef = useRef(false);
 
@@ -334,35 +344,65 @@ export function BoardPage() {
     }
   }
 
-  function handleVisibilityClick() {
-    if (!isOwner) {
-      toast.error("Only the board owner can change visibility.");
-      return;
-    }
+  function handleShareClick() {
     requireAuth(
       () => {
-        setVisibilityConfirmOpen(true);
+        setShareOpen(true);
       },
       {
-        reason: "save",
-        title: "Log in to change visibility",
-        description: "Save this board to your account to control public or private access.",
+        reason: "collaborate",
+        title: "Log in to manage access",
+        description: "Control who can view and edit this board.",
       },
     );
   }
 
-  async function confirmVisibilityChange() {
-    if (!board || !isOwner) return;
-    setVisibilityConfirmOpen(false);
+  async function handleToggleVisibility(newVisibility: "private" | "public") {
+    if (!board || updatingVisibility) return;
+    setUpdatingVisibility(true);
     try {
       const updated = await updateBoardVisibility(
         board.id,
-        board.visibility === "public" ? "private" : "public",
+        newVisibility,
+        board.anyoneCanEdit,
       );
       setBoard(updated);
-      toast.success(`Board is now ${updated.visibility}`);
+      toast.success(`Board is now ${newVisibility}`);
     } catch {
       toast.error("Could not update board visibility.");
+    } finally {
+      setUpdatingVisibility(false);
+    }
+  }
+
+  async function handleToggleAnyoneCanEdit(anyoneCanEdit: boolean) {
+    if (!board || updatingVisibility) return;
+    setUpdatingVisibility(true);
+    try {
+      const updated = await updateBoardVisibility(
+        board.id,
+        board.visibility,
+        anyoneCanEdit,
+      );
+      setBoard(updated);
+      toast.success(
+        anyoneCanEdit
+          ? "Anyone with the link can now edit!"
+          : "Edit access restricted to invited editors only.",
+      );
+    } catch {
+      toast.error("Could not update edit permissions.");
+    } finally {
+      setUpdatingVisibility(false);
+    }
+  }
+
+  async function handleCopyBoardLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      toast.success("Board link copied to clipboard!");
+    } catch {
+      toast.error("Could not copy link.");
     }
   }
 
@@ -409,18 +449,6 @@ export function BoardPage() {
     }
   }
 
-  function handleCollaboratorsClick() {
-    requireAuth(
-      () => {
-        setInviteOpen(true);
-      },
-      {
-        reason: "collaborate",
-        title: "Log in to invite collaborators",
-        description: "Draw live together with friends and teammates in real time.",
-      },
-    );
-  }
 
   async function handleInvite() {
     if (!board || !isOwner || inviting || !inviteUsername.trim()) return;
@@ -558,52 +586,57 @@ export function BoardPage() {
             </button>
           )}
 
-          {/* Visibility Toggle Button (Owner only; Collaborators see a read-only badge) */}
+          {/* Share & Access Button */}
           {isOwner ? (
             <button
               type="button"
-              onClick={handleVisibilityClick}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-              title="Change board visibility"
+              onClick={handleShareClick}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                isPublic
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : "border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              }`}
             >
-              {board.visibility === "public" ? (
-                <Globe size={13} />
-              ) : (
-                <Lock size={13} />
-              )}
-              {board.visibility === "public" ? "Public" : "Private"}
+              {isPublic ? <Globe size={13} /> : <Lock size={13} />}
+              <span>{isPublic ? (board.anyoneCanEdit ? "Public (Open edit)" : "Public (View only)") : "Private"}</span>
             </button>
           ) : (
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
-              title="Visibility is managed by the board owner"
-            >
-              {board.visibility === "public" ? (
-                <Globe size={13} />
-              ) : (
-                <Lock size={13} />
-              )}
-              {board.visibility === "public" ? "Public" : "Private"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-600 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">
+                {canEdit ? <PenTool size={11} /> : <Lock size={11} />}
+                <span>{canEdit ? "Can edit" : "View only"}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => void handleDuplicate()}
+                disabled={duplicating}
+                className="inline-flex items-center gap-1.5 rounded-full border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 shadow-2xs transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                <Copy size={13} />
+                <span>Duplicate</span>
+              </button>
+            </div>
           )}
 
-          {/* Collaborators Button */}
-          <button
-            type="button"
-            onClick={handleCollaboratorsClick}
-            className="relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
-          >
-            <Users size={13} />
-            Collaborators
-            {collaborators.length > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
-                {collaborators.length}
-              </span>
-            )}
-          </button>
+          {/* Collaborators Button (when logged in owner) */}
+          {isOwner && board.id !== "local" && (
+            <button
+              type="button"
+              onClick={handleShareClick}
+              className="relative inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+            >
+              <Users size={13} />
+              <span>Collaborators</span>
+              {collaborators.length > 0 && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-white">
+                  {collaborators.length}
+                </span>
+              )}
+            </button>
+          )}
 
-          {/* Make a Copy Button */}
-          {board.id !== "local" && (
+          {/* Make a Copy Button (Owner) */}
+          {board.id !== "local" && isOwner && (
             <button
               type="button"
               onClick={() => void handleDuplicate()}
@@ -714,7 +747,9 @@ export function BoardPage() {
           <BoardCanvas
             boardId={board.id}
             initialSnapshot={board.snapshot}
+            readOnly={readOnly}
             isLocalMode={isLocalMode}
+            watermarkText={board.originalOwnerName}
             onEditorReady={setEditor}
             onActiveCollaboratorsChange={setActiveCollaborators}
           />
@@ -723,7 +758,11 @@ export function BoardPage() {
         <PersonalFilesSidebar boardId={board.id} />
       </div>
 
-      <ShareTray editor={editor} title={board.title} />
+      <ShareTray
+        editor={editor}
+        title={board.title}
+        ownerName={board.originalOwnerName || session?.user?.name || "Anonymous"}
+      />
 
       {/* Publish Dialog */}
       {publishOpen && (
@@ -972,203 +1011,192 @@ export function BoardPage() {
         </div>
       )}
 
-      {/* Visibility Confirmation Dialog */}
-      {visibilityConfirmOpen && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-neutral-950/45 p-4 backdrop-blur-[1px]">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
-            <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              Change visibility to {board.visibility === "public" ? "Private" : "Public"}?
-            </h3>
-            <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-              {board.visibility === "public"
-                ? "Making this board private will remove it and all community post associations."
-                : "Making this board public allows anyone with the link to view it."}
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setVisibilityConfirmOpen(false)}
-                className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmVisibilityChange()}
-                className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover"
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Collaborators Dialog */}
-      {inviteOpen && (
+
+      {/* ── Share & Access Modal ── */}
+      {shareOpen && (
         <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-neutral-950/45 p-4 backdrop-blur-[1px]">
-          <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-brand">
-                  Board collaborators
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                  Access & Sharing
                 </p>
-                <h2 className="mt-0.5 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-                  {isOwner ? `Invite to “${board.title}”` : `Collaborators on “${board.title}”`}
+                <h2 className="mt-0.5 text-lg font-bold text-neutral-900 dark:text-neutral-50">
+                  {board.title}
                 </h2>
-                {!isOwner && (
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Only the board owner can invite or remove collaborators.
-                  </p>
-                )}
               </div>
               <button
                 type="button"
-                onClick={() => setInviteOpen(false)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-200/70 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
+                onClick={() => setShareOpen(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 transition hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
               >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Owner-only Invite Controls */}
-            {isOwner && (
-              <>
-                {/* Role picker */}
-                <div className="mb-3 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setInviteRole("editor")}
-                    className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                      inviteRole === "editor"
-                        ? "border-brand bg-brand/5 text-neutral-900 dark:border-brand dark:bg-brand/10 dark:text-neutral-50"
-                        : "border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:text-neutral-300"
-                    }`}
-                  >
-                    <p className="font-medium">Editor</p>
-                    <p className="mt-0.5 text-xs text-neutral-500">Can draw and edit content</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInviteRole("viewer")}
-                    className={`flex-1 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                      inviteRole === "viewer"
-                        ? "border-brand bg-brand/5 text-neutral-900 dark:border-brand dark:bg-brand/10 dark:text-neutral-50"
-                        : "border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:text-neutral-300"
-                    }`}
-                  >
-                    <p className="font-medium">Viewer</p>
-                    <p className="mt-0.5 text-xs text-neutral-500">Can only view the board</p>
-                  </button>
-                </div>
+            {/* Access State Switcher */}
+            <div className="mb-5 space-y-3">
+              <label className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                Board Access Mode
+              </label>
 
-                {/* Invite link section */}
-                <div className="mb-4 flex items-center justify-between rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3.5 py-2.5 dark:border-neutral-700 dark:bg-neutral-900/60">
-                  <div className="min-w-0 pr-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleToggleVisibility("private")}
+                  disabled={updatingVisibility}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    board.visibility === "private"
+                      ? "border-brand bg-brand/5 dark:border-brand dark:bg-brand/10"
+                      : "border-neutral-200 hover:border-neutral-300 dark:border-neutral-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Lock size={15} className={board.visibility === "private" ? "text-brand" : "text-neutral-400"} />
+                    <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Private</span>
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    Only you and invited collaborators can access
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleToggleVisibility("public")}
+                  disabled={updatingVisibility}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    board.visibility === "public"
+                      ? "border-brand bg-brand/5 dark:border-brand dark:bg-brand/10"
+                      : "border-neutral-200 hover:border-neutral-300 dark:border-neutral-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Globe size={15} className={board.visibility === "public" ? "text-brand" : "text-neutral-400"} />
+                    <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Public</span>
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    Anyone with the link can view this board
+                  </p>
+                </button>
+              </div>
+
+              {/* Public Edit Permission Toggle */}
+              {board.visibility === "public" && (
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-900/60">
+                  <div className="pr-3">
                     <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                      Invite via link
+                      Open Collaborative Editing
                     </p>
-                    <p className="truncate text-[11px] text-neutral-500">
-                      Anyone with this link joins as {inviteRole}
+                    <p className="text-[11px] text-neutral-500">
+                      {board.anyoneCanEdit
+                        ? "Anyone with the link can draw and make real-time changes."
+                        : "View-only for link holders (only invited editors can draw)."}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleCopyInviteLink()}
-                    className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                      linkCopied
-                        ? "bg-emerald-600 text-white"
-                        : "bg-neutral-200 text-neutral-800 hover:bg-neutral-300 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
-                    }`}
-                  >
-                    {linkCopied ? (
-                      <>
-                        <Check size={12} />
-                        <span>Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <LinkIcon size={12} />
-                        <span>Copy link</span>
-                      </>
-                    )}
-                  </button>
+                  <label className="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(board.anyoneCanEdit)}
+                      onChange={(e) => void handleToggleAnyoneCanEdit(e.target.checked)}
+                      disabled={updatingVisibility}
+                      className="peer sr-only"
+                    />
+                    <div className="peer h-6 w-11 rounded-full bg-neutral-300 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-neutral-700"></div>
+                  </label>
                 </div>
+              )}
+            </div>
 
-                <div className="relative mb-4 flex items-center justify-center">
-                  <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
-                  <span className="absolute bg-white px-2 text-[10px] uppercase tracking-wider text-neutral-400 dark:bg-neutral-900">
-                    or invite by username
-                  </span>
+            {/* Link Sharing */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="min-w-0 pr-2">
+                  <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    Share Link
+                  </p>
+                  <p className="truncate text-[11px] text-neutral-500">
+                    {board.visibility === "public"
+                      ? "Direct link to view this board"
+                      : "Invite collaborators via link"}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={board.visibility === "public" ? handleCopyBoardLink : () => void handleCopyInviteLink()}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-brand-hover"
+                >
+                  {linkCopied ? <Check size={12} /> : <LinkIcon size={12} />}
+                  <span>{linkCopied ? "Copied!" : "Copy link"}</span>
+                </button>
+              </div>
+            </div>
 
-                {/* Username input */}
-                <div className="mb-5 flex items-center gap-2">
-                  <input
-                    type="text"
-                    placeholder="Enter username (e.g. janedoe)"
-                    value={inviteUsername}
-                    onChange={(e) => setInviteUsername(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleInvite();
-                    }}
-                    className="flex-1 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-                  />
-                  <button
-                    type="button"
-                    disabled={inviting || !inviteUsername.trim()}
-                    onClick={() => void handleInvite()}
-                    className="rounded-full bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {inviting ? "Inviting…" : "Invite"}
-                  </button>
-                </div>
-              </>
-            )}
+            {/* Invite by Username */}
+            <div className="mb-5 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                Invite specific user
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Enter username..."
+                  value={inviteUsername}
+                  onChange={(e) => setInviteUsername(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void handleInvite();
+                  }}
+                  className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2 text-sm text-neutral-900 outline-none focus:border-brand dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as "editor" | "viewer")}
+                  className="rounded-xl border border-neutral-200 bg-neutral-50 px-2.5 py-2 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                >
+                  <option value="editor">Editor</option>
+                  <option value="viewer">Viewer</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={inviting || !inviteUsername.trim()}
+                  onClick={() => void handleInvite()}
+                  className="rounded-xl bg-brand px-4 py-2 text-xs font-semibold text-white transition hover:bg-brand-hover disabled:opacity-50"
+                >
+                  {inviting ? "Inviting…" : "Invite"}
+                </button>
+              </div>
+            </div>
 
+            {/* Collaborators List */}
             {collaborators.length > 0 && (
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                  Shared with ({collaborators.length})
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                  Collaborators ({collaborators.length})
                 </p>
-                <ul className="max-h-52 space-y-2 overflow-y-auto">
+                <ul className="max-h-40 space-y-1.5 overflow-y-auto">
                   {collaborators.map((c) => (
                     <li
                       key={c.userId}
-                      className="flex items-center justify-between rounded-xl bg-neutral-50 px-3 py-2.5 dark:bg-neutral-900"
+                      className="flex items-center justify-between rounded-xl bg-neutral-50 px-3 py-2 text-xs dark:bg-neutral-900"
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-2">
                         <Avatar name={c.name} avatarUrl={c.avatarUrl} size="sm" />
                         <div>
-                          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                          <p className="font-semibold text-neutral-900 dark:text-neutral-100">
                             {c.name}
                           </p>
-                          {c.username && (
-                            <p className="text-xs text-neutral-500">@{c.username}</p>
-                          )}
+                          <span className="text-[10px] text-neutral-400 uppercase font-medium">
+                            {c.role}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                            c.role === "editor"
-                              ? "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400"
-                              : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
-                          }`}
-                        >
-                          {c.role}
-                        </span>
-                        {isOwner && (
-                          <button
-                            type="button"
-                            onClick={() => void handleRemoveCollaborator(c.userId)}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 transition hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400"
-                            title="Remove collaborator"
-                          >
-                            <X size={13} />
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleRemoveCollaborator(c.userId)}
+                        className="text-neutral-400 hover:text-red-500"
+                      >
+                        <X size={14} />
+                      </button>
                     </li>
                   ))}
                 </ul>
