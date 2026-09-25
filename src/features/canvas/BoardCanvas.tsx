@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Tldraw,
   DefaultStylePanel,
@@ -17,6 +17,9 @@ import {
   LineToolbarItem,
   HighlightToolbarItem,
   FrameToolbarItem,
+  TldrawUiToolbar,
+  TldrawUiRow,
+  TldrawUiMenuContextProvider,
   type Editor,
   type TLEditorSnapshot,
 } from '@tldraw/tldraw';
@@ -40,14 +43,14 @@ function LeftStylePanel() {
   );
 }
 
-/** Places the Add Document button to the left of the bottom toolbar and shows arrow, text, note, media in main toolbar. */
+/** Places the Add Document button to the left of the bottom toolbar and shows all creation tools. */
 function CustomToolbar(props: any) {
   return (
-    <div className="flex items-end gap-2">
+    <div className="flex items-end gap-2 pointer-events-auto">
       <div className="pb-[calc(var(--tl-space-3)+var(--tl-sab))] pointer-events-auto">
         <DocumentToolbar />
       </div>
-      <DefaultToolbar {...props} minItems={8} maxItems={25} maxSizePx={1200}>
+      <DefaultToolbar {...props}>
         <SelectToolbarItem />
         <HandToolbarItem />
         <LaserToolbarItem />
@@ -67,28 +70,48 @@ function CustomToolbar(props: any) {
   );
 }
 
-/** Read-only toolbar preserves presentation and navigation tools (Select, Hand, Laser) while hiding editing tools. */
-function ReadOnlyToolbar(props: any) {
+/**
+ * Read-only toolbar preserves presentation and navigation tools (Select, Hand, Laser)
+ * while hiding editing tools. Directly uses TldrawUiToolbar + TldrawUiMenuContextProvider
+ * to avoid OverflowingToolbar's resize/measurement recursion on minimal item sets.
+ */
+function ReadOnlyToolbar() {
   return (
-    <DefaultToolbar {...props} minItems={3} maxItems={8} maxSizePx={300}>
-      <SelectToolbarItem />
-      <HandToolbarItem />
-      <LaserToolbarItem />
-    </DefaultToolbar>
+    <div className="tlui-main-toolbar tlui-main-toolbar--horizontal pointer-events-auto">
+      <div className="tlui-main-toolbar__inner">
+        <div className="tlui-main-toolbar__left">
+          <TldrawUiToolbar
+            orientation="horizontal"
+            className="tlui-main-toolbar__tools"
+            label="Presentation Tools"
+          >
+            <TldrawUiRow>
+              <TldrawUiMenuContextProvider type="toolbar" sourceId="toolbar">
+                <SelectToolbarItem />
+                <HandToolbarItem />
+                <LaserToolbarItem />
+              </TldrawUiMenuContextProvider>
+            </TldrawUiRow>
+          </TldrawUiToolbar>
+        </div>
+      </div>
+    </div>
   );
 }
+
+const NullComponent = () => null;
 
 /** Hides the default style panel placeholder (we use LeftStylePanel above) and places Add Document button to the left of toolbar. */
 const tldrawComponents = {
   StylePanel: LeftStylePanel,
   Toolbar: CustomToolbar,
-} as const;
+};
 
 /** Read-only mode hides editing tools and style panel, but keeps navigation & presentation tools. */
 const readOnlyComponents = {
   Toolbar: ReadOnlyToolbar,
-  StylePanel: () => null,
-} as const;
+  StylePanel: NullComponent,
+};
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
 
@@ -122,8 +145,6 @@ export function BoardCanvas({
 }: BoardCanvasProps) {
   const [editor, setEditor] = useState<Editor | null>(null);
   const saveTimeoutRef = useRef<number | undefined>(undefined);
-  // tldraw keeps its own color-mode preference; without this it ignores our
-  // `dark` class and stays light while the rest of the app flips.
   const theme = useThemeStore((s) => s.theme);
 
   const boardIdRef = useRef(boardId);
@@ -140,9 +161,32 @@ export function BoardCanvas({
     enabled: !isLocal,
   });
 
+  const lastCollabsRef = useRef<ActiveCollaborator[]>([]);
   useEffect(() => {
-    onActiveCollaboratorsChange?.(activeCollaborators);
+    if (!onActiveCollaboratorsChange) return;
+    const prev = lastCollabsRef.current;
+    if (
+      prev.length !== activeCollaborators.length ||
+      prev.some(
+        (c, i) =>
+          c.socketId !== activeCollaborators[i]?.socketId ||
+          c.role !== activeCollaborators[i]?.role,
+      )
+    ) {
+      lastCollabsRef.current = activeCollaborators;
+      onActiveCollaboratorsChange(activeCollaborators);
+    }
   }, [activeCollaborators, onActiveCollaboratorsChange]);
+
+  const components = useMemo(() => {
+    return readOnly ? readOnlyComponents : tldrawComponents;
+  }, [readOnly]);
+
+  const snapshot = useMemo(() => {
+    return isEmptySnapshot(initialSnapshot)
+      ? undefined
+      : (initialSnapshot as unknown as TLEditorSnapshot);
+  }, [initialSnapshot]);
 
   const handleMount = useCallback(
     (mountedEditor: Editor) => {
@@ -167,11 +211,11 @@ export function BoardCanvas({
             ) {
               return;
             }
-            const snapshot = mountedEditor.getSnapshot();
+            const currentSnap = mountedEditor.getSnapshot();
             void renderThumbnail(mountedEditor, watermarkText).then((thumbnail) =>
               updateBoardSnapshot(
                 currentBoardId,
-                snapshot as unknown as Record<string, unknown>,
+                currentSnap as unknown as Record<string, unknown>,
                 thumbnail,
               ),
             );
@@ -191,14 +235,10 @@ export function BoardCanvas({
   return (
     <div className="relative h-full w-full">
       <Tldraw
-        snapshot={
-          isEmptySnapshot(initialSnapshot)
-            ? undefined
-            : (initialSnapshot as unknown as TLEditorSnapshot)
-        }
+        snapshot={snapshot}
         colorScheme={theme}
         shapeUtils={customShapeUtils}
-        components={readOnly ? (readOnlyComponents as any) : (tldrawComponents as any)}
+        components={components}
         onMount={handleMount}
         licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
       />
