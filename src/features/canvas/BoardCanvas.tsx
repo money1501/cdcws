@@ -87,7 +87,7 @@ export function BoardCanvas({
     boardId,
     editor,
     readOnly,
-    enabled: !isLocal && !readOnly,
+    enabled: !isLocal,
   });
 
   useEffect(() => {

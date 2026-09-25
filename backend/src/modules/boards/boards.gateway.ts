@@ -140,17 +140,17 @@ export class BoardsGateway implements OnGatewayDisconnect {
   @SubscribeMessage('board:cursor')
   handleBoardCursor(
     @ConnectedSocket() client: Socket,
-    @MessageBody() body: { boardId?: string; point?: { x: number; y: number } },
+    @MessageBody() body: { boardId?: string; point?: { x: number; y: number } | null },
   ) {
     const boardId = body?.boardId || this.socketBoard.get(client.id);
-    if (!boardId || !body?.point) return;
+    if (!boardId) return;
 
     const member = this.activeRooms.get(boardId)?.get(client.id);
     client.to(roomName(boardId)).emit('board:cursor', {
       fromSocketId: client.id,
       userId: member?.userId,
       name: member?.name,
-      point: body.point,
+      point: body?.point ?? null,
     });
   }
 
@@ -177,6 +177,13 @@ export class BoardsGateway implements OnGatewayDisconnect {
         this.server.to(roomName(boardId)).emit('board:presence', { activeCollaborators: activeList });
       }
     }
+
+    client.to(roomName(boardId)).emit('board:cursor', {
+      fromSocketId: client.id,
+      userId: null,
+      name: null,
+      point: null,
+    });
 
     void client.leave(roomName(boardId));
     this.socketBoard.delete(client.id);
