@@ -1,13 +1,8 @@
 /**
- * The Drawgon logo, served from /public as a static file.
- *
- * It is a ~490KB auto-traced SVG (1000 paths, 1024x559) that carries its own
- * opaque #1E1F24 backdrop, so it is referenced with <img> rather than inlined:
- * inlining would push half a megabyte into the JS bundle on every render, and
- * its paths are not shaped for stroke animation.
+ * The Boared logo/mascot, served from /public as a static asset.
  */
-const LOGO_SRC = '/drawgon-logo.svg';
-const ASPECT = 1024 / 559;
+const LOGO_SRC = '/logo.png';
+const ASPECT = 929 / 655; // 1.4183
 
 interface DrawgonMarkProps {
   /** Rendered height in px; width follows the artwork's aspect ratio. */
@@ -18,14 +13,16 @@ interface DrawgonMarkProps {
 }
 
 export function DrawgonMark({ size = 32, className, animated = false }: DrawgonMarkProps) {
+  const width = Math.round(size * ASPECT);
   return (
     <img
       src={LOGO_SRC}
       alt="Boared"
-      width={Math.round(size * ASPECT)}
+      width={width}
       height={size}
+      style={{ width: `${width}px`, height: `${size}px` }}
       className={[
-        'select-none rounded-lg object-contain',
+        'select-none object-contain transition-transform',
         animated ? 'drawgon-pulse' : '',
         className,
       ]
@@ -34,3 +31,4 @@ export function DrawgonMark({ size = 32, className, animated = false }: DrawgonM
     />
   );
 }
+

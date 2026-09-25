@@ -76,8 +76,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen bg-neutral-50 dark:bg-neutral-950">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex dark:border-neutral-800 dark:bg-neutral-900/50">
-        <Link to="/home" className="flex items-center gap-2 px-4 py-4">
-          <DrawgonMark size={26} />
+        <Link to="/home" className="flex items-center gap-2.5 px-4 py-4">
+          <DrawgonMark size={28} />
+          <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
+            Boared
+          </span>
         </Link>
 
         {/* Quick launch anonymous whiteboard */}
@@ -174,8 +177,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 bg-white px-4 py-2.5 dark:border-neutral-800 dark:bg-neutral-900/50">
-          <Link to="/home" className="md:hidden">
-            <DrawgonMark size={22} />
+          <Link to="/home" className="flex items-center gap-2 md:hidden">
+            <DrawgonMark size={24} />
+            <span className="text-sm font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
+              Boared
+            </span>
           </Link>
 
           <div className="flex flex-1 items-center justify-end gap-2">
