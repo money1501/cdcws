@@ -109,11 +109,14 @@ export class CommunityService {
       where: { id },
       relations: { owner: true },
     });
+    if (!board) {
+      throw new NotFoundException(`Board ${id} not found`);
+    }
+
     if (
-      !board ||
-      (board.visibility !== BoardVisibility.PUBLIC &&
-        board.visibility !== BoardVisibility.PUBLISHED &&
-        board.ownerId !== currentUserId)
+      board.visibility !== BoardVisibility.PUBLIC &&
+      board.visibility !== BoardVisibility.PUBLISHED &&
+      board.ownerId !== currentUserId
     ) {
       const collab = await this.collabsRepository.findOne({
         where: { boardId: id, userId: currentUserId },
@@ -122,14 +125,6 @@ export class CommunityService {
         throw new NotFoundException(`Board ${id} not found`);
       }
     }
-
-    const isDifferentOwner = board.ownerId !== currentUserId;
-    const originalOwnerId = isDifferentOwner
-      ? (board.originalOwnerId || board.ownerId)
-      : null;
-    const originalOwnerName = isDifferentOwner
-      ? (board.originalOwnerName || board.owner?.name || 'original creator')
-      : null;
 
     const isDifferentOwner = board.ownerId !== currentUserId;
     const originalOwnerId = isDifferentOwner
