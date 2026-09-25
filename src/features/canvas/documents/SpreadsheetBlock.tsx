@@ -51,7 +51,7 @@ export function SpreadsheetBlock({
   onChange,
   readOnly = false,
   scale = 1,
-  zoomLevel = 1,
+  zoomLevel: _zoomLevel = 1,
 }: SpreadsheetBlockProps) {
   const [activeCell, setActiveCell] = useState<string>('A1');
   const [editingCell, setEditingCell] = useState<string | null>(null);

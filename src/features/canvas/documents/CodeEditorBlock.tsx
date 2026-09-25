@@ -38,7 +38,7 @@ export function CodeEditorBlock({
   onLanguageChange,
   readOnly = false,
   scale = 1,
-  zoomLevel = 1,
+  zoomLevel: _zoomLevel = 1,
 }: CodeEditorBlockProps) {
   const [activeTab, setActiveTab] = useState<'editor' | 'output'>('editor');
   const [outputLogs, setOutputLogs] = useState<string[]>([]);

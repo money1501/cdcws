@@ -29,7 +29,7 @@ export function TextEditorBlock({
   onChange,
   readOnly = false,
   scale = 1,
-  zoomLevel = 1,
+  zoomLevel: _zoomLevel = 1,
 }: TextEditorBlockProps) {
   const [isPreview, setIsPreview] = useState(false);
   const [copied, setCopied] = useState(false);
