@@ -7,7 +7,7 @@
 # the resulting https://<service>.onrender.com origin and rebuild on Netlify.
 services:
   - type: web
-    name: drawgon-api
+    name: boared-api
     runtime: node
     plan: free
     # Supabase runs this project in ap-northeast-1 (Tokyo); Singapore is the
@@ -48,7 +48,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: FRONTEND_URL
-        value: boared.live
+        value: https://boared.live
       # Set these in the Render dashboard — never commit them.
       #   DATABASE_URL      Supabase session pooler URI (port 5432, not 6543)
       #   BETTER_AUTH_SECRET  reuse the existing value or generate a new one
