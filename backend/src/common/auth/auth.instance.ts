@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { betterAuth } from 'better-auth';
 import { emailOTP } from 'better-auth/plugins';
+import { createAuthMiddleware } from 'better-auth/api';
 import { PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import { getDatabaseSsl } from '../../config/database-ssl';
@@ -18,7 +19,6 @@ console.log(
     process.env.GOOGLE_CLIENT_SECRET,
   )}), Resend OTP: ${resendConfigured}, FRONTEND_URL: ${process.env.FRONTEND_URL || 'none'}`,
 );
-
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
@@ -41,6 +41,20 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     },
   },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path.startsWith('/sign-in/social')) {
+        const body = ctx.body as Record<string, any> | undefined;
+        if (!body?.callbackURL || body.callbackURL === ctx.context.baseURL) {
+          ctx.body = {
+            ...body,
+            callbackURL: process.env.FRONTEND_URL || 'https://boared.live/',
+          };
+        }
+      }
+    }),
+  },
+
 
   plugins: [
     emailOTP({
