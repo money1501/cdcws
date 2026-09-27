@@ -153,32 +153,10 @@ export const auth = betterAuth({
     defaultCookieAttributes: {
       sameSite: isProduction ? ('none' as const) : ('lax' as const),
       secure: isProduction,
-      partitioned: isProduction,
+      httpOnly: true,
+      path: '/',
     },
-    useSecureCookies: isProduction,
-    cookies: {
-      state: {
-        attributes: {
-          sameSite: isProduction ? ('none' as const) : ('lax' as const),
-          secure: isProduction,
-          partitioned: isProduction,
-        },
-      },
-      oauth_state: {
-        attributes: {
-          sameSite: isProduction ? ('none' as const) : ('lax' as const),
-          secure: isProduction,
-          partitioned: isProduction,
-        },
-      },
-      session_token: {
-        attributes: {
-          sameSite: isProduction ? ('none' as const) : ('lax' as const),
-          secure: isProduction,
-          partitioned: isProduction,
-        },
-      },
-    },
+    useSecureCookies: false,
   },
 });
 
