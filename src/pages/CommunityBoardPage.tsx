@@ -24,6 +24,7 @@ import { deleteBoard } from "@/lib/boards-api";
 import { VoteButtons } from "@/features/community/VoteButtons";
 import { CommentThread } from "@/features/community/CommentThread";
 import { Avatar } from "@/components/Avatar";
+import { CommunityAvatar } from "@/features/community/CommunityAvatar";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useSession } from "@/lib/auth-client";
@@ -196,17 +197,17 @@ export function CommunityBoardPage() {
       {/* ── Two-Column Layout ── */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
         {/* ── Left Column: Static Preview Image ── */}
-        <div className="flex flex-col lg:col-span-7 xl:col-span-8">
+        <div className="flex flex-col lg:col-span-6 xl:col-span-7">
           <div
             onDoubleClick={openLiveCanvas}
-            className="group relative flex min-h-[320px] max-h-[520px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100/80 shadow-sm transition hover:border-brand/50 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/80"
+            className="group relative flex min-h-[320px] max-h-[500px] w-full cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100/80 shadow-sm transition hover:border-brand/50 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900/80"
             title="Double-click to open live board"
           >
             {item.thumbnailUrl ? (
               <img
                 src={item.thumbnailUrl}
                 alt={item.title}
-                className="max-h-[520px] w-full bg-white object-contain transition duration-300 group-hover:scale-[1.01] dark:bg-neutral-950"
+                className="max-h-[500px] w-full bg-white object-contain transition duration-300 group-hover:scale-[1.01] dark:bg-neutral-950"
               />
             ) : (
               <div className="flex aspect-16/10 w-full flex-col items-center justify-center bg-gradient-to-br from-violet-500/15 via-brand/10 to-cyan-500/15 p-8 text-center">
@@ -252,8 +253,8 @@ export function CommunityBoardPage() {
           </div>
         </div>
 
-        {/* ── Right Column: Author Info, Title, Tags, Description, Media ── */}
-        <div className="flex flex-col gap-5 lg:col-span-5 xl:col-span-4">
+        {/* ── Right Column: Author Info, Community, Title, Tags, Description, Media ── */}
+        <div className="flex flex-col gap-5 lg:col-span-6 xl:col-span-5">
           {/* Author info & post date */}
           <div className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white p-3.5 shadow-2xs dark:border-neutral-800 dark:bg-neutral-900">
             <Link
@@ -272,6 +273,26 @@ export function CommunityBoardPage() {
               </div>
             </Link>
           </div>
+
+          {/* Community Name (only if post belongs to a community) */}
+          {item.community && (
+            <div className="-mt-2">
+              <Link
+                to={`/c/${item.community.slug}`}
+                className="inline-flex items-center gap-2 text-sm font-medium text-neutral-500 transition hover:text-brand dark:text-neutral-400 dark:hover:text-brand"
+              >
+                <CommunityAvatar
+                  slug={item.community.slug}
+                  iconUrl={item.community.iconUrl}
+                  size="sm"
+                  className="h-5 w-5 text-[10px]"
+                />
+                <span className="truncate">
+                  {item.community.name}#{item.community.slug}
+                </span>
+              </Link>
+            </div>
+          )}
 
           {/* Title & Board name */}
           <div>

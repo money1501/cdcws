@@ -58,7 +58,7 @@ export function CommunityPicker({
         className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
       >
         <Hash size={13} />
-        {current ? `d/${current.slug}` : 'No community'}
+        {current ? current.name : 'No community'}
         <ChevronDown size={13} />
       </button>
 
@@ -88,7 +88,7 @@ export function CommunityPicker({
             >
               <div className="flex items-center gap-2 truncate">
                 <CommunityAvatar slug={c.slug} iconUrl={c.iconUrl} size="sm" />
-                <span className="truncate">d/{c.slug}</span>
+                <span className="truncate">{c.name}</span>
               </div>
               {communityId === c.id && <Check size={14} className="text-brand shrink-0" />}
             </button>

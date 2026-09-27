@@ -4,7 +4,13 @@ import type { CommunitySummary } from '@shared/community';
 import { CommunityAvatar } from './CommunityAvatar';
 import { joinCommunity, leaveCommunity } from '@/lib/communities-api';
 
-export function CommunityCard({ community }: { community: CommunitySummary }) {
+export function CommunityCard({
+  community,
+  isSearchResult = false,
+}: {
+  community: CommunitySummary;
+  isSearchResult?: boolean;
+}) {
   const [state, setState] = useState(community);
   const [pending, setPending] = useState(false);
 
@@ -32,7 +38,7 @@ export function CommunityCard({ community }: { community: CommunitySummary }) {
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-neutral-900 group-hover:text-brand dark:text-neutral-50">
-          d/{state.slug}
+          {isSearchResult ? `${state.name}#${state.slug}` : state.name}
         </p>
         <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
           {state.memberCount} {state.memberCount === 1 ? 'member' : 'members'} ·{' '}

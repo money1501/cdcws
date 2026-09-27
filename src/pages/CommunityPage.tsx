@@ -107,8 +107,9 @@ export function CommunityPage() {
   async function handleDelete() {
     if (!community || deleting) return;
     const confirmed = await confirm({
-      title: `Delete d/${community.slug}?`,
-      message: 'This community and its settings will be permanently removed. This action cannot be undone.',
+      title: `Delete ${community.name}#${community.slug}?`,
+      message:
+        'Deleting this community will remove it permanently. All posts in it will become private and only visible to their original owners.',
       confirmText: 'Delete Community',
       variant: 'danger',
     });
@@ -209,10 +210,10 @@ export function CommunityPage() {
 
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-            d/{community.slug}
+            {community.name}#{community.slug}
           </h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            {community.name} · {community.memberCount}{" "}
+            {community.memberCount}{" "}
             {community.memberCount === 1 ? "member" : "members"}
           </p>
           {community.description && (
@@ -262,7 +263,7 @@ export function CommunityPage() {
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-neutral-300 py-16 text-center dark:border-neutral-700">
             <Sparkles size={22} className="text-neutral-400" />
             <p className="text-neutral-500">
-              Nothing posted to d/{community.slug} yet.
+              Nothing posted to {community.name} yet.
             </p>
             <p className="text-xs text-neutral-400">
               Publish a board and file it here from the board page.

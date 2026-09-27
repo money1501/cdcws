@@ -18,6 +18,16 @@ export interface FeedItem {
   ownerId: string;
   ownerName: string;
   thumbnailUrl: string | null;
+  community?: {
+    id: string;
+    name: string;
+    slug: string;
+    iconUrl?: string | null;
+  } | null;
+  visibility?: string;
+  anyoneCanEdit?: boolean;
+  originalOwnerId?: string | null;
+  originalOwnerName?: string | null;
   createdAt: Date;
   updatedAt: Date;
   score: number;
@@ -49,6 +59,8 @@ export class CommunityService {
     const boards = await this.boardsRepository
       .createQueryBuilder('board')
       .leftJoinAndSelect('board.owner', 'owner')
+      .leftJoinAndSelect('board.community', 'community')
+      .leftJoinAndSelect('board.communities', 'communities')
       .where('board.visibility IN (:...visibilities)', {
         visibilities: [BoardVisibility.PUBLIC, BoardVisibility.PUBLISHED],
       })
@@ -74,7 +86,7 @@ export class CommunityService {
         { id: In([...savedIds]), visibility: BoardVisibility.PUBLIC },
         { id: In([...savedIds]), visibility: BoardVisibility.PUBLISHED },
       ],
-      relations: { owner: true },
+      relations: { owner: true, community: true, communities: true },
       order: { updatedAt: 'DESC' },
     });
     return this.enrichBoards(boards, currentUserId);
@@ -87,7 +99,7 @@ export class CommunityService {
         { ownerId: targetUserId, visibility: BoardVisibility.PUBLIC },
         { ownerId: targetUserId, visibility: BoardVisibility.PUBLISHED },
       ],
-      relations: { owner: true },
+      relations: { owner: true, community: true, communities: true },
       order: { updatedAt: 'DESC' },
     });
     return this.enrichBoards(boards, currentUserId);
@@ -99,7 +111,7 @@ export class CommunityService {
         { id, visibility: BoardVisibility.PUBLIC },
         { id, visibility: BoardVisibility.PUBLISHED },
       ],
-      relations: { owner: true },
+      relations: { owner: true, community: true, communities: true },
     });
     if (!board) {
       throw new NotFoundException(`Public board ${id} not found`);
@@ -172,27 +184,38 @@ export class CommunityService {
       this.bookmarksService.isBookmarkedByMany(boardIds, currentUserId),
     ]);
 
-    return boards.map((board) => ({
-      id: board.id,
-      title: board.postTitle || board.title,
-      boardTitle: board.title,
-      postTitle: board.postTitle,
-      postDetails: board.postDetails,
-      postTags: board.postTags ?? [],
-      postMedia: board.postMedia ?? [],
-      ownerId: board.ownerId,
-      ownerName: board.owner?.name ?? 'Unknown',
-      thumbnailUrl: board.thumbnailUrl,
-      visibility: board.visibility,
-      anyoneCanEdit: board.anyoneCanEdit,
-      originalOwnerId: board.originalOwnerId,
-      originalOwnerName: board.originalOwnerName,
-      createdAt: board.createdAt,
-      updatedAt: board.updatedAt,
-      score: scores.get(board.id)?.score ?? 0,
-      myVote: scores.get(board.id)?.myVote ?? null,
-      commentCount: commentCounts.get(board.id) ?? 0,
-      bookmarked: bookmarked.has(board.id),
-    }));
+    return boards.map((board) => {
+      const comm = board.community || board.communities?.[0];
+      return {
+        id: board.id,
+        title: board.postTitle || board.title,
+        boardTitle: board.title,
+        postTitle: board.postTitle,
+        postDetails: board.postDetails,
+        postTags: board.postTags ?? [],
+        postMedia: board.postMedia ?? [],
+        ownerId: board.ownerId,
+        ownerName: board.owner?.name ?? 'Unknown',
+        thumbnailUrl: board.thumbnailUrl,
+        community: comm
+          ? {
+              id: comm.id,
+              name: comm.name,
+              slug: comm.slug,
+              iconUrl: comm.iconUrl ?? null,
+            }
+          : null,
+        visibility: board.visibility,
+        anyoneCanEdit: board.anyoneCanEdit,
+        originalOwnerId: board.originalOwnerId,
+        originalOwnerName: board.originalOwnerName,
+        createdAt: board.createdAt,
+        updatedAt: board.updatedAt,
+        score: scores.get(board.id)?.score ?? 0,
+        myVote: scores.get(board.id)?.myVote ?? null,
+        commentCount: commentCounts.get(board.id) ?? 0,
+        bookmarked: bookmarked.has(board.id),
+      };
+    });
   }
 }

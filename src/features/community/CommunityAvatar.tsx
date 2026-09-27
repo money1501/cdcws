@@ -43,7 +43,7 @@ export function CommunityAvatar({
     return (
       <img
         src={iconUrl}
-        alt={`d/${slug}`}
+        alt={slug}
         className={`inline-block shrink-0 rounded-full object-cover ${DIMS[size]} ${className ?? ''}`}
       />
     );

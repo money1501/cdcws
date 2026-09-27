@@ -9,6 +9,12 @@ export interface FeedItem {
   ownerId: string;
   ownerName: string;
   thumbnailUrl: string | null;
+  community?: {
+    id: string;
+    name: string;
+    slug: string;
+    iconUrl?: string | null;
+  } | null;
   visibility?: string;
   anyoneCanEdit?: boolean;
   originalOwnerId?: string | null;
@@ -69,8 +75,8 @@ export interface CommunitySummary {
 }
 
 export interface CreateCommunityInput {
-  slug: string;
-  name: string;
+  name?: string;
+  slug?: string;
   description?: string;
   iconUrl?: string;
 }

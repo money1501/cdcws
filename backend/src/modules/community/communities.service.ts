@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, In, Repository } from 'typeorm';
+import { DataSource, ILike, In, Repository } from 'typeorm';
 import { Board, BoardVisibility } from '../../database/entities/board.entity';
 import { BoardCommunity } from '../../database/entities/board-community.entity';
 import { Community } from '../../database/entities/community.entity';
@@ -45,8 +45,6 @@ const RESERVED_SLUGS = new Set([
   'communities',
 ]);
 
-const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9_-]{1,30}[a-z0-9])$/;
-
 @Injectable()
 export class CommunitiesService {
   constructor(
@@ -59,6 +57,7 @@ export class CommunitiesService {
     @InjectRepository(BoardCommunity)
     private readonly boardCommunitiesRepository: Repository<BoardCommunity>,
     private readonly communityService: CommunityService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async list(
@@ -104,28 +103,42 @@ export class CommunitiesService {
     return summary;
   }
 
+  private async generateUniqueSlug(name: string): Promise<string> {
+    let base = name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove diacritics
+      .replace(/[^a-z0-9]+/g, '-')     // replace non-alphanumeric chars with hyphen
+      .replace(/^-+|-+$/g, '')         // trim hyphens
+      .slice(0, 24);                   // leave room for counter suffix
+
+    if (!base || base.length < 2) {
+      base = 'community';
+    }
+
+    let slug = base;
+    let counter = 1;
+
+    while (RESERVED_SLUGS.has(slug) || (await this.communitiesRepository.existsBy({ slug }))) {
+      counter++;
+      slug = `${base}-${counter}`;
+    }
+
+    return slug;
+  }
+
   async create(
     currentUserId: string,
     dto: CreateCommunityDto,
   ): Promise<CommunitySummary> {
-    const slug = dto.slug.trim().toLowerCase();
-
-    if (!SLUG_PATTERN.test(slug)) {
-      throw new BadRequestException(
-        'Handle must be 3-32 characters: lowercase letters, numbers, hyphens or underscores, starting and ending alphanumeric.',
-      );
-    }
-    if (RESERVED_SLUGS.has(slug)) {
-      throw new BadRequestException(`d/${slug} is reserved.`);
-    }
-    if (await this.communitiesRepository.existsBy({ slug })) {
-      throw new ConflictException(`d/${slug} already exists.`);
-    }
+    const rawName = dto.name?.trim();
+    const name = rawName || `Community ${Math.floor(1000 + Math.random() * 9000)}`;
+    const slug = await this.generateUniqueSlug(name);
 
     const community = await this.communitiesRepository.save(
       this.communitiesRepository.create({
         slug,
-        name: dto.name.trim(),
+        name,
         description: dto.description?.trim() || null,
         iconUrl: dto.iconUrl || null,
         createdBy: currentUserId,
@@ -220,17 +233,65 @@ export class CommunitiesService {
   }
 
   async remove(slug: string, currentUserId: string, isAdmin = false): Promise<void> {
-    const community = await this.findBySlugOrFail(slug);
-    const membership = await this.membersRepository.findOneBy({
-      communityId: community.id,
-      userId: currentUserId,
+    await this.dataSource.transaction(async (manager) => {
+      const community = await manager.findOneBy(Community, {
+        slug: slug.toLowerCase(),
+      });
+      if (!community) {
+        throw new NotFoundException(`Community d/${slug} not found`);
+      }
+
+      const membership = await manager.findOneBy(CommunityMember, {
+        communityId: community.id,
+        userId: currentUserId,
+      });
+
+      if (
+        !isAdmin &&
+        membership?.role !== CommunityRole.OWNER &&
+        community.createdBy !== currentUserId
+      ) {
+        throw new ForbiddenException(
+          'Only the community owner or an admin can delete it.',
+        );
+      }
+
+      // Find all board IDs associated with this community (either directly via communityId or via board_communities)
+      const boardCommunityRows = await manager
+        .createQueryBuilder(BoardCommunity, 'bc')
+        .select('bc.board_id', 'boardId')
+        .where('bc.community_id = :communityId', { communityId: community.id })
+        .getRawMany<{ boardId: string }>();
+
+      const directBoardRows = await manager
+        .createQueryBuilder(Board, 'b')
+        .select('b.id', 'boardId')
+        .where('b.community_id = :communityId', { communityId: community.id })
+        .getRawMany<{ boardId: string }>();
+
+      const affectedBoardIds = Array.from(
+        new Set([
+          ...boardCommunityRows.map((r) => r.boardId),
+          ...directBoardRows.map((r) => r.boardId),
+        ]),
+      );
+
+      // Change visibility of all affected published boards to PRIVATE and unset communityId
+      if (affectedBoardIds.length > 0) {
+        await manager
+          .createQueryBuilder()
+          .update(Board)
+          .set({
+            visibility: BoardVisibility.PRIVATE,
+            communityId: null,
+          })
+          .where('id IN (:...ids)', { ids: affectedBoardIds })
+          .execute();
+      }
+
+      // Delete the community record itself (cascades to community_members and board_communities)
+      await manager.remove(Community, community);
     });
-
-    if (!isAdmin && membership?.role !== CommunityRole.OWNER && community.createdBy !== currentUserId) {
-      throw new ForbiddenException('Only the community owner or an admin can delete it.');
-    }
-
-    await this.communitiesRepository.remove(community);
   }
 
   /** Public boards posted to this community, newest first. */
@@ -240,6 +301,8 @@ export class CommunitiesService {
       .createQueryBuilder('board')
       .leftJoin('board_communities', 'boardCommunity', 'boardCommunity.board_id = board.id')
       .leftJoinAndSelect('board.owner', 'owner')
+      .leftJoinAndSelect('board.community', 'community')
+      .leftJoinAndSelect('board.communities', 'communities')
       .where('board.visibility IN (:...visibilities)', {
         visibilities: [BoardVisibility.PUBLIC, BoardVisibility.PUBLISHED],
       })

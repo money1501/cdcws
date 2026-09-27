@@ -11,7 +11,7 @@ export function CommunitiesPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ slug: '', name: '', description: '' });
+  const [form, setForm] = useState({ name: '', description: '' });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -34,9 +34,8 @@ export function CommunitiesPage() {
     setError(null);
     try {
       const community = await createCommunity({
-        slug: form.slug,
-        name: form.name,
-        description: form.description || undefined,
+        name: form.name.trim() || undefined,
+        description: form.description.trim() || undefined,
       });
       navigate(`/c/${community.slug}`);
     } catch (err) {
@@ -80,30 +79,12 @@ export function CommunitiesPage() {
             )}
             <label className="mb-3 block">
               <span className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                Handle
-              </span>
-              <div className="flex items-center gap-1">
-                <span className="text-sm text-neutral-400">d/</span>
-                <input
-                  required
-                  value={form.slug}
-                  onChange={(e) =>
-                    setForm({ ...form, slug: e.target.value.toLowerCase() })
-                  }
-                  placeholder="filmmaking"
-                  className={inputClass}
-                />
-              </div>
-            </label>
-            <label className="mb-3 block">
-              <span className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                Display name
+                Community name
               </span>
               <input
-                required
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Filmmaking"
+                placeholder="e.g. Anime, Filmmaking, Architecture"
                 className={inputClass}
               />
             </label>
@@ -158,7 +139,10 @@ export function CommunitiesPage() {
         <ul className="space-y-3">
           {items.map((community) => (
             <li key={community.id}>
-              <CommunityCard community={community} />
+              <CommunityCard
+                community={community}
+                isSearchResult={Boolean(query.trim())}
+              />
             </li>
           ))}
         </ul>

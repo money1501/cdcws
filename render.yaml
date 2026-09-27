@@ -49,13 +49,25 @@ services:
         value: production
       - key: FRONTEND_URL
         value: https://boared.live
-      # Set these in the Render dashboard — never commit them.
       #   DATABASE_URL      Supabase session pooler URI (port 5432, not 6543)
       #   BETTER_AUTH_SECRET  reuse the existing value or generate a new one
       #   BETTER_AUTH_URL   https://<this-service>.onrender.com
+      #   GOOGLE_CLIENT_ID    Google OAuth Client ID
+      #   GOOGLE_CLIENT_SECRET Google OAuth Client Secret
+      #   RESEND_API_KEY    Resend Email API Key
+      #   RESEND_FROM_EMAIL (optional) e.g. Boared <onboarding@resend.dev>
       - key: DATABASE_URL
         sync: false
       - key: BETTER_AUTH_SECRET
         sync: false
       - key: BETTER_AUTH_URL
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+

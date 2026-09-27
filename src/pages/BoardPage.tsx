@@ -969,7 +969,7 @@ export function BoardPage() {
                                   : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
                                 }`}
                             >
-                              <span>d/{c.slug}</span>
+                              <span>{c.name}</span>
                               {selected && <Check size={14} />}
                             </button>
                           );
