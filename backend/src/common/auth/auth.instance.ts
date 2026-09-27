@@ -16,10 +16,9 @@ console.log(
     process.env.GOOGLE_CLIENT_ID,
   )}, ClientSecret: ${Boolean(
     process.env.GOOGLE_CLIENT_SECRET,
-  )}), Resend OTP: ${resendConfigured} (From: ${
-    process.env.RESEND_FROM_EMAIL || 'Boared <onboarding@resend.dev>'
-  })`,
+  )}), Resend OTP: ${resendConfigured}, FRONTEND_URL: ${process.env.FRONTEND_URL || 'none'}`,
 );
+
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
@@ -121,7 +120,17 @@ export const auth = betterAuth({
       },
     },
   },
-  trustedOrigins: [process.env.FRONTEND_URL ?? 'http://localhost:5173'],
+  trustedOrigins: Array.from(
+    new Set(
+      [
+        process.env.FRONTEND_URL?.replace(/\/+$/, ''),
+        'https://boared.live',
+        'https://www.boared.live',
+        'http://localhost:5173',
+        'http://localhost:3000',
+      ].filter(Boolean) as string[],
+    ),
+  ),
   ...(isProduction && {
     advanced: {
       defaultCookieAttributes: {
@@ -135,3 +144,4 @@ export const auth = betterAuth({
     },
   }),
 });
+

@@ -19,10 +19,30 @@ async function bootstrap() {
   app.use(json({ limit: MAX_BODY_SIZE }));
   app.use(urlencoded({ limit: MAX_BODY_SIZE, extended: true }));
 
+  const configuredFrontendUrl = configService.get<string>('FRONTEND_URL');
+  const allowedOrigins = Array.from(
+    new Set(
+      [
+        configuredFrontendUrl?.replace(/\/+$/, ''),
+        'https://boared.live',
+        'https://www.boared.live',
+        'http://localhost:5173',
+        'http://localhost:3000',
+      ].filter(Boolean) as string[],
+    ),
+  );
+
   app.enableCors({
-    origin: configService.get<string>('FRONTEND_URL'),
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(null, true);
+      }
+    },
     credentials: true,
   });
+
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
