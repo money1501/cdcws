@@ -120,6 +120,10 @@ export const auth = betterAuth({
       },
     },
   },
+  account: {
+    storeStateStrategy: 'database',
+    skipStateCookieCheck: true,
+  },
   trustedOrigins: Array.from(
     new Set(
       [
@@ -131,17 +135,37 @@ export const auth = betterAuth({
       ].filter(Boolean) as string[],
     ),
   ),
-  ...(isProduction && {
-    advanced: {
-      defaultCookieAttributes: {
-        sameSite: 'none' as const,
-        secure: true,
-        // Chrome's CHIPS partitioning: third-party cookies without it are
-        // being phased out, and a partitioned cookie is still fine here
-        // because the session is only ever read by this one API origin.
-        partitioned: true,
+  advanced: {
+    defaultCookieAttributes: {
+      sameSite: isProduction ? ('none' as const) : ('lax' as const),
+      secure: isProduction,
+      partitioned: isProduction,
+    },
+    useSecureCookies: isProduction,
+    cookies: {
+      state: {
+        attributes: {
+          sameSite: isProduction ? ('none' as const) : ('lax' as const),
+          secure: isProduction,
+          partitioned: isProduction,
+        },
+      },
+      oauth_state: {
+        attributes: {
+          sameSite: isProduction ? ('none' as const) : ('lax' as const),
+          secure: isProduction,
+          partitioned: isProduction,
+        },
+      },
+      session_token: {
+        attributes: {
+          sameSite: isProduction ? ('none' as const) : ('lax' as const),
+          secure: isProduction,
+          partitioned: isProduction,
+        },
       },
     },
-  }),
+  },
 });
+
 
