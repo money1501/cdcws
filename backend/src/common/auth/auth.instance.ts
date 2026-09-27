@@ -1,22 +1,25 @@
+import 'dotenv/config';
 import { betterAuth } from 'better-auth';
 import { emailOTP } from 'better-auth/plugins';
 import { PostgresDialect } from 'kysely';
 import { Pool } from 'pg';
 import { getDatabaseSsl } from '../../config/database-ssl';
 
-/**
- * In development the frontend (localhost:5173) and API (localhost:3000) are
- * the same site, so the default `SameSite=Lax` session cookie is sent freely.
- * Deployed they are not: the frontend sits on Netlify and the API on its own
- * host, which makes every auth request cross-site. Browsers drop a `Lax`
- * cookie there, so login appears to succeed and the very next request arrives
- * anonymous — bouncing the user straight back to /login.
- *
- * `SameSite=None` requires `Secure`, which requires HTTPS. That combination is
- * only correct in production; forcing it locally would stop the cookie from
- * being stored over plain http at all.
- */
 const isProduction = process.env.NODE_ENV === 'production';
+const googleConfigured = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
+);
+const resendConfigured = Boolean(process.env.RESEND_API_KEY);
+
+console.log(
+  `[Auth Startup] Initializing BetterAuth: Google OAuth: ${googleConfigured} (ClientId: ${Boolean(
+    process.env.GOOGLE_CLIENT_ID,
+  )}, ClientSecret: ${Boolean(
+    process.env.GOOGLE_CLIENT_SECRET,
+  )}), Resend OTP: ${resendConfigured} (From: ${
+    process.env.RESEND_FROM_EMAIL || 'Boared <onboarding@resend.dev>'
+  })`,
+);
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL,
@@ -33,16 +36,13 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
-    ? {
-        socialProviders: {
-          google: {
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          },
-        },
-      }
-    : {}),
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    },
+  },
+
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
