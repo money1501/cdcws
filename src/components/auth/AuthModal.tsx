@@ -109,11 +109,13 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
   useEffect(() => {
     if (isOpen) {
-      setMode(options?.initialMode ?? 'login');
+      const initial = options?.initialMode ?? 'login';
+      setMode(initial);
       setAuthMethod('password');
       setOtpStep('request');
       setIsVerifyingEmail(false);
@@ -124,6 +126,9 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
       setEmail('');
       setPassword('');
       setGoogleLoading(false);
+      setTimeout(() => {
+        emailInputRef.current?.focus();
+      }, 50);
     }
   }, [isOpen, options]);
 
@@ -150,11 +155,30 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
 
   if (!isOpen) return null;
 
+  function switchMode(newMode: 'login' | 'signup') {
+    setMode(newMode);
+    setPassword('');
+    setError(null);
+    setIsVerifyingEmail(false);
+    setOtpStep('request');
+    setTimeout(() => {
+      emailInputRef.current?.focus();
+    }, 50);
+  }
+
   const reason = options?.reason ?? 'general';
   const reasonInfo = REASON_CONFIG[reason];
   const Icon = reasonInfo.icon;
-  const headingTitle = options?.title || reasonInfo.title;
-  const headingDesc = options?.description || reasonInfo.description;
+
+  const headingTitle =
+    mode === 'signup'
+      ? 'Create your Boared account'
+      : (options?.title || reasonInfo.title);
+
+  const headingDesc =
+    mode === 'signup'
+      ? 'Join Boared to save, share, and collaborate on boards.'
+      : (options?.description || reasonInfo.description);
 
   async function handleGoogleSignIn() {
     setError(null);
@@ -378,7 +402,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
           </p>
         </div>
 
-        {/* Google OAuth Button (Option 1) */}
+        {/* Google OAuth Button */}
         <button
           type="button"
           onClick={handleGoogleSignIn}
@@ -415,39 +439,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
 
         {/* Content: Form vs Verification */}
         {!isVerifyingEmail && otpStep === 'request' ? (
-          <>
-            {/* Tab Switcher: Login vs Sign Up */}
-            <div className="mb-3 flex rounded-xl border border-neutral-200 bg-neutral-100/80 p-1 dark:border-neutral-800 dark:bg-neutral-800/60">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setError(null);
-                }}
-                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
-                  mode === 'login'
-                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-neutral-50'
-                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-                }`}
-              >
-                Log In
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signup');
-                  setError(null);
-                }}
-                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
-                  mode === 'signup'
-                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-neutral-50'
-                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-                }`}
-              >
-                Create Account
-              </button>
-            </div>
-
+          <div className="transition-opacity duration-150">
             {/* Method Switcher: Password vs Email OTP */}
             <div className="mb-3.5 flex items-center justify-center gap-4 text-xs font-medium text-neutral-500">
               <button
@@ -455,6 +447,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                 onClick={() => {
                   setAuthMethod('password');
                   setError(null);
+                  setTimeout(() => emailInputRef.current?.focus(), 50);
                 }}
                 className={`inline-flex items-center gap-1.5 border-b-2 pb-1 transition ${
                   authMethod === 'password'
@@ -471,6 +464,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                   setAuthMethod('otp');
                   setOtpStep('request');
                   setError(null);
+                  setTimeout(() => emailInputRef.current?.focus(), 50);
                 }}
                 className={`inline-flex items-center gap-1.5 border-b-2 pb-1 transition ${
                   authMethod === 'otp'
@@ -514,6 +508,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                     Email Address
                   </label>
                   <input
+                    ref={emailInputRef}
                     id="auth-email-input"
                     type="email"
                     required
@@ -552,7 +547,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                     <span>{mode === 'login' ? 'Signing in…' : 'Creating account…'}</span>
                   ) : (
                     <>
-                      <span>{mode === 'login' ? 'Continue with Password' : 'Sign Up & Save Board'}</span>
+                      <span>{mode === 'login' ? 'Continue with Password' : 'Create account'}</span>
                       <ArrowRight size={15} />
                     </>
                   )}
@@ -571,6 +566,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                     Email Address
                   </label>
                   <input
+                    ref={emailInputRef}
                     id="auth-otp-email-input"
                     type="email"
                     required
@@ -597,7 +593,34 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                 </button>
               </form>
             )}
-          </>
+
+            {/* Mode Switcher Link */}
+            <p className="mt-4 text-center text-[13px] text-neutral-500 dark:text-neutral-400">
+              {mode === 'login' ? (
+                <>
+                  <span>New to Boared? </span>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('signup')}
+                    className="font-medium text-brand hover:underline underline-offset-2 transition hover:text-brand-hover"
+                  >
+                    Create an account
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>Already have an account? </span>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className="font-medium text-brand hover:underline underline-offset-2 transition hover:text-brand-hover"
+                  >
+                    Log in
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
         ) : (
           /* Verification View for Password Signup, Unverified Login, and OTP Sign-in */
           <form onSubmit={handleVerifyOtp} className="space-y-3">
