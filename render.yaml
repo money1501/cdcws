@@ -55,7 +55,7 @@ services:
       #   GOOGLE_CLIENT_ID    Google OAuth Client ID
       #   GOOGLE_CLIENT_SECRET Google OAuth Client Secret
       #   RESEND_API_KEY    Resend Email API Key
-      #   RESEND_FROM_EMAIL (optional) e.g. Boared <onboarding@resend.dev>
+      #   EMAIL_FROM / RESEND_FROM_EMAIL (optional) e.g. Boared <noreply@boared.live>
       - key: DATABASE_URL
         sync: false
       - key: BETTER_AUTH_SECRET
@@ -67,6 +67,8 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
         sync: false
       - key: RESEND_FROM_EMAIL
         sync: false

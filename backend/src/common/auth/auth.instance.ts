@@ -69,7 +69,9 @@ export const auth = betterAuth({
 
         try {
           const fromEmail =
-            process.env.RESEND_FROM_EMAIL || 'Boared <onboarding@resend.dev>';
+            process.env.EMAIL_FROM ||
+            process.env.RESEND_FROM_EMAIL ||
+            'Boared <noreply@boared.live>';
           const subject =
             type === 'sign-in'
               ? `Your Boared verification code: ${otp}`
