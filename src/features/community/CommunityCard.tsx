@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { CommunitySummary } from '@shared/community';
 import { CommunityAvatar } from './CommunityAvatar';
+import { CommunityLabel } from './CommunityLabel';
 import { joinCommunity, leaveCommunity } from '@/lib/communities-api';
 
 export function CommunityCard({
@@ -38,7 +39,7 @@ export function CommunityCard({
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-neutral-900 group-hover:text-brand dark:text-neutral-50">
-          {isSearchResult ? `${state.name}#${state.slug}` : state.name}
+          <CommunityLabel name={state.name} slug={state.slug} showSlug={isSearchResult} />
         </p>
         <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
           {state.memberCount} {state.memberCount === 1 ? 'member' : 'members'} ·{' '}

@@ -35,6 +35,7 @@ import { listMyCommunities, setBoardCommunities } from "@/lib/communities-api";
 import { BoardCanvas } from "@/features/canvas/BoardCanvas";
 import { ShareTray } from "@/features/share/ShareTray";
 import { BoardTitle } from "@/features/canvas/BoardTitle";
+import { CommunityLabel } from "@/features/community/CommunityLabel";
 import { PersonalFilesSidebar } from "@/features/files/PersonalFilesSidebar";
 import { usePersonalFilesStore } from "@/features/files/usePersonalFilesStore";
 import {
@@ -969,7 +970,7 @@ export function BoardPage() {
                                   : "text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
                                 }`}
                             >
-                              <span>{c.name}</span>
+                              <CommunityLabel name={c.name} slug={c.slug} />
                               {selected && <Check size={14} />}
                             </button>
                           );

@@ -2,6 +2,7 @@ import { Check, ChevronDown, Hash } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { CommunitySummary } from '@shared/community';
 import { CommunityAvatar } from './CommunityAvatar';
+import { CommunityLabel } from './CommunityLabel';
 import { listMyCommunities, setBoardCommunity } from '@/lib/communities-api';
 
 interface CommunityPickerProps {
@@ -58,7 +59,7 @@ export function CommunityPicker({
         className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-neutral-200/70 hover:text-neutral-900 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-50"
       >
         <Hash size={13} />
-        {current ? current.name : 'No community'}
+        {current ? <CommunityLabel name={current.name} slug={current.slug} /> : 'No community'}
         <ChevronDown size={13} />
       </button>
 
@@ -88,7 +89,7 @@ export function CommunityPicker({
             >
               <div className="flex items-center gap-2 truncate">
                 <CommunityAvatar slug={c.slug} iconUrl={c.iconUrl} size="sm" />
-                <span className="truncate">{c.name}</span>
+                <CommunityLabel name={c.name} slug={c.slug} className="truncate" />
               </div>
               {communityId === c.id && <Check size={14} className="text-brand shrink-0" />}
             </button>

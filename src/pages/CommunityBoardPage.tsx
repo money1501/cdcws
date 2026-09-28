@@ -25,6 +25,7 @@ import { VoteButtons } from "@/features/community/VoteButtons";
 import { CommentThread } from "@/features/community/CommentThread";
 import { Avatar } from "@/components/Avatar";
 import { CommunityAvatar } from "@/features/community/CommunityAvatar";
+import { CommunityLabel } from "@/features/community/CommunityLabel";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useSession } from "@/lib/auth-client";
@@ -288,7 +289,7 @@ export function CommunityBoardPage() {
                   className="h-5 w-5 text-[10px]"
                 />
                 <span className="truncate">
-                  {item.community.name}#{item.community.slug}
+                  <CommunityLabel name={item.community.name} slug={item.community.slug} />
                 </span>
               </Link>
             </div>

@@ -12,6 +12,7 @@ import {
 } from "@/lib/communities-api";
 import { BoardCard } from "@/features/community/BoardCard";
 import { CommunityAvatar } from "@/features/community/CommunityAvatar";
+import { CommunityLabel } from "@/features/community/CommunityLabel";
 import { DrawgonLoader } from "@/components/DrawgonLoader";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useSession } from "@/lib/auth-client";
@@ -107,7 +108,11 @@ export function CommunityPage() {
   async function handleDelete() {
     if (!community || deleting) return;
     const confirmed = await confirm({
-      title: `Delete ${community.name}#${community.slug}?`,
+      title: (
+        <>
+          Delete <CommunityLabel name={community.name} slug={community.slug} />?
+        </>
+      ),
       message:
         'Deleting this community will remove it permanently. All posts in it will become private and only visible to their original owners.',
       confirmText: 'Delete Community',
@@ -210,7 +215,7 @@ export function CommunityPage() {
 
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-            {community.name}#{community.slug}
+            <CommunityLabel name={community.name} slug={community.slug} />
           </h1>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             {community.memberCount}{" "}
@@ -263,7 +268,7 @@ export function CommunityPage() {
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-neutral-300 py-16 text-center dark:border-neutral-700">
             <Sparkles size={22} className="text-neutral-400" />
             <p className="text-neutral-500">
-              Nothing posted to {community.name} yet.
+              Nothing posted to <CommunityLabel name={community.name} slug={community.slug} /> yet.
             </p>
             <p className="text-xs text-neutral-400">
               Publish a board and file it here from the board page.
