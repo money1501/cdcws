@@ -54,6 +54,13 @@ import { useAuthModal } from "@/lib/auth-modal-context";
 import { useToast } from "@/components/toast/ToastProvider";
 import { useConfirm } from "@/components/dialog";
 import { Avatar } from "@/components/Avatar";
+import {
+  stashPendingBoard,
+  getPendingBoard,
+  getPendingBoardSync,
+  clearPendingBoard,
+  hasPendingBoardSync,
+} from "@/lib/board-stash";
 
 const DEFAULT_LOCAL_BOARD: Board = {
   id: "local",
@@ -79,10 +86,22 @@ export function BoardPage() {
   const { boardId } = useParams<{ boardId?: string }>();
   const isExplicitId = Boolean(boardId && boardId !== "local" && boardId !== "new");
 
-  const [board, setBoard] = useState<Board | null>(() =>
-    isExplicitId ? null : DEFAULT_LOCAL_BOARD,
-  );
+  const [board, setBoard] = useState<Board | null>(() => {
+    if (isExplicitId) return null;
+    const stashed = getPendingBoardSync();
+    if (stashed) {
+      return {
+        ...DEFAULT_LOCAL_BOARD,
+        title: stashed.title || DEFAULT_LOCAL_BOARD.title,
+        snapshot: stashed.snapshot || DEFAULT_LOCAL_BOARD.snapshot,
+      };
+    }
+    return DEFAULT_LOCAL_BOARD;
+  });
+
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSavingPending, setIsSavingPending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [activeCollaborators, setActiveCollaborators] = useState<ActiveCollaborator[]>([]);
@@ -131,42 +150,160 @@ export function BoardPage() {
       board?.role === "editor");
   const readOnly = !canEdit;
   const isLocalMode = !board || board.id === "local" || !session?.user;
-  const isUpgradingRef = useRef(false);
+  const isResumingSaveRef = useRef(false);
 
-  // Upgrade in-memory anonymous board to a persisted board on server
-  const upgradeBoard = useCallback(async () => {
-    if (isUpgradingRef.current || !editor) return null;
-    isUpgradingRef.current = true;
+  // Resume stashed or local board save once user is authenticated
+  const resumePendingSave = useCallback(async () => {
+    if (isResumingSaveRef.current) return;
+    if (!session?.user) return;
+
+    const stashed = await getPendingBoard();
+    const isLocal = !board || board.id === "local";
+
+    if (!stashed && !isLocal) return;
+
+    isResumingSaveRef.current = true;
+    setIsSavingPending(true);
+    setSaveError(null);
+
     try {
-      const snapshot = editor.getSnapshot() as unknown as Record<string, unknown>;
-      const thumbnail = await renderThumbnail(editor);
-      const currentTitle = board?.title || "Untitled board";
+      let snapshotToSave: Record<string, unknown> = stashed?.snapshot || board?.snapshot || {};
+      let thumbnail: string | undefined = undefined;
+
+      if (editor) {
+        try {
+          const editorSnap = editor.getSnapshot() as unknown as Record<string, unknown>;
+          if (editorSnap && Object.keys(editorSnap).length > 0) {
+            snapshotToSave = editorSnap;
+          }
+          thumbnail = await renderThumbnail(editor);
+        } catch (e) {
+          console.warn("Failed to generate thumbnail during board save:", e);
+        }
+      }
+
+      const titleToSave = stashed?.title || board?.title || "Untitled board";
 
       const created = await createBoard({
-        title: currentTitle,
-        snapshot,
-        thumbnail,
+        title: titleToSave,
+        snapshot: snapshotToSave,
+        ...(thumbnail ? { thumbnail } : {}),
       });
 
-      setBoard(created);
-      navigate(`/boards/${created.id}`, { replace: true });
-      toast.success("Board saved to your account!");
-      return created;
-    } catch (err) {
-      console.error("Failed to upgrade board:", err);
-      toast.error("Could not save board to your account.");
-      return null;
-    } finally {
-      isUpgradingRef.current = false;
-    }
-  }, [editor, board?.title, navigate, toast]);
+      // Clear stash atomically only after backend confirms success
+      await clearPendingBoard();
 
-  // Seamlessly upgrade anonymous board if user signs in while drawing
-  useEffect(() => {
-    if (session?.user && board?.id === "local" && editor && !isUpgradingRef.current) {
-      void upgradeBoard();
+      // Clean up ?resume=save from URL if present
+      try {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.has("resume")) {
+          currentUrl.searchParams.delete("resume");
+          window.history.replaceState(
+            {},
+            "",
+            currentUrl.pathname + (currentUrl.search ? currentUrl.search : ""),
+          );
+        }
+      } catch {
+        // ignore
+      }
+
+      setBoard(created);
+      toast.success("Board saved to your account!");
+      navigate(`/boards/${created.id}`, { replace: true });
+    } catch (err: any) {
+      console.error("Failed to save board to account:", err);
+      const msg = err?.message || "Could not save board to your account.";
+      setSaveError(msg);
+      toast.error(msg);
+    } finally {
+      setIsSavingPending(false);
+      isResumingSaveRef.current = false;
     }
-  }, [session?.user, board?.id, editor, upgradeBoard]);
+  }, [session?.user, editor, board, navigate, toast]);
+
+  // Click handler for anonymous "Save Board"
+  const handleSaveBoardClick = useCallback(async () => {
+    if (session?.user) {
+      void resumePendingSave();
+      return;
+    }
+
+    if (!editor) {
+      toast.error("Whiteboard is still initializing, please wait a moment.");
+      return;
+    }
+
+    try {
+      const snapshot = editor.getSnapshot() as unknown as Record<string, unknown>;
+      const currentTitle = board?.title || "Untitled board";
+
+      const result = await stashPendingBoard(snapshot, currentTitle);
+      if (!result.success) {
+        toast.error(result.error || "Could not prepare whiteboard for save.");
+        return;
+      }
+
+      openAuthModal({
+        reason: "save",
+        title: "Save whiteboard to account",
+        description: "Log in or create an account to save your drawing permanently.",
+        onSuccess: () => {
+          void resumePendingSave();
+        },
+      });
+    } catch (err: any) {
+      console.error("Failed to stash board before auth:", err);
+      toast.error("Failed to prepare whiteboard for save.");
+    }
+  }, [session?.user, editor, board, openAuthModal, resumePendingSave, toast]);
+
+  // Hydrate from IndexedDB on initial mount if snapshot was stored there
+  useEffect(() => {
+    if (isExplicitId) return;
+    void getPendingBoard().then((stashed) => {
+      if (stashed && stashed.snapshot && Object.keys(stashed.snapshot).length > 0) {
+        setBoard((prev) => {
+          if (
+            prev &&
+            prev.id === "local" &&
+            (!prev.snapshot || Object.keys(prev.snapshot).length === 0)
+          ) {
+            return {
+              ...prev,
+              title: stashed.title || prev.title,
+              snapshot: stashed.snapshot,
+            };
+          }
+          return prev;
+        });
+        if (editor) {
+          try {
+            editor.loadSnapshot(stashed.snapshot as any);
+          } catch (e) {
+            console.warn("Could not load snapshot into editor:", e);
+          }
+        }
+      }
+    });
+  }, [isExplicitId, editor]);
+
+  // Auto-resume save when authenticated session becomes available
+  useEffect(() => {
+    if (!session?.user || isResumingSaveRef.current) return;
+
+    let shouldResume = false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      shouldResume = params.get("resume") === "save" || hasPendingBoardSync();
+    } catch {
+      shouldResume = hasPendingBoardSync();
+    }
+
+    if (shouldResume || board?.id === "local") {
+      void resumePendingSave();
+    }
+  }, [session?.user, board?.id, resumePendingSave]);
 
   // Fetch persisted board when explicit boardId is in URL
   useEffect(() => {
@@ -720,17 +857,12 @@ export function BoardPage() {
               </span>
               <button
                 type="button"
-                onClick={() =>
-                  openAuthModal({
-                    reason: "save",
-                    title: "Save whiteboard to account",
-                    description: "Log in or create an account to save your drawing permanently.",
-                  })
-                }
-                className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-brand-hover"
+                onClick={() => void handleSaveBoardClick()}
+                disabled={isSavingPending}
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-brand-hover disabled:opacity-50"
               >
                 <LogIn size={13} />
-                <span>Save Board</span>
+                <span>{isSavingPending ? "Saving…" : "Save Board"}</span>
               </button>
             </div>
           ) : (
@@ -751,6 +883,27 @@ export function BoardPage() {
 
       {/* Main Canvas & Sidebars */}
       <div className="relative flex flex-1 overflow-hidden">
+        {saveError && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[500] flex items-center gap-3 rounded-xl border border-red-300 bg-red-50/95 px-4 py-2.5 text-xs text-red-800 shadow-lg backdrop-blur-sm animate-in fade-in dark:border-red-800/80 dark:bg-red-950/95 dark:text-red-300">
+            <span>{saveError}</span>
+            <button
+              type="button"
+              onClick={() => void resumePendingSave()}
+              disabled={isSavingPending}
+              className="rounded-lg bg-red-600 px-2.5 py-1 font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+            >
+              {isSavingPending ? "Saving…" : "Retry"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSaveError(null)}
+              className="text-red-500 hover:text-red-700 dark:hover:text-red-200"
+              aria-label="Dismiss error"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
         <div className="relative flex-1 h-full overflow-hidden">
           <BoardCanvas
             boardId={board.id}

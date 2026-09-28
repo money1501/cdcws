@@ -5,6 +5,7 @@ import { authClient, signIn } from '@/lib/auth-client';
 import { DrawgonMark } from '@/components/DrawgonMark';
 import { GoogleIcon } from '@/components/icons/GoogleIcon';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { hasPendingBoardSync } from '@/lib/board-stash';
 
 export function LoginPage() {
   const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
@@ -40,9 +41,13 @@ export function LoginPage() {
     setError(null);
     setGoogleLoading(true);
     try {
+      const url = new URL(window.location.origin + '/');
+      if (hasPendingBoardSync()) {
+        url.searchParams.set('resume', 'save');
+      }
       await authClient.signIn.social({
         provider: 'google',
-        callbackURL: window.location.origin + '/',
+        callbackURL: url.toString(),
       });
     } catch (err: any) {
       setError(err?.message || 'Google sign-in failed. Please try again.');

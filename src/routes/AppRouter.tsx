@@ -19,6 +19,8 @@ import { ProtectedRoute } from '@/routes/ProtectedRoute';
 import { useSession } from '@/lib/auth-client';
 import { DrawgonLoader } from '@/components/DrawgonLoader';
 
+import { hasPendingBoardSync } from '@/lib/board-stash';
+
 /** Protected screens render inside the persistent sidebar + header shell. */
 function shell(element: React.ReactNode) {
   return (
@@ -36,12 +38,22 @@ function openShell(element: React.ReactNode) {
 /**
  * Root route:
  * - Unauthenticated users get an immediate, responsive interactive whiteboard.
+ * - Authenticated users with a pending board save remain on BoardPage until saved.
  * - Authenticated users get their Dashboard ("My Boards").
  */
 function RootRoute() {
   const { data: session, isPending } = useSession();
   if (isPending) return <DrawgonLoader />;
-  if (!session?.user) {
+
+  let isResuming = false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    isResuming = params.get('resume') === 'save' || hasPendingBoardSync();
+  } catch {
+    isResuming = hasPendingBoardSync();
+  }
+
+  if (!session?.user || isResuming) {
     return <BoardPage />;
   }
   return <AppShell><DashboardPage /></AppShell>;

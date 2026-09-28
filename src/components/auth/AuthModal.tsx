@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react';
 import {
   X,
   Lock,
@@ -22,6 +22,7 @@ import { DrawgonMark } from '@/components/DrawgonMark';
 import { GoogleIcon } from '@/components/icons/GoogleIcon';
 import { useToast } from '@/components/toast/ToastProvider';
 import type { AuthModalOptions, AuthReason } from '@/lib/auth-modal-context';
+import { hasPendingBoardSync, clearPendingBoard } from '@/lib/board-stash';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -113,10 +114,12 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
+  const authSuccessRef = useRef(false);
   const toast = useToast();
 
   useEffect(() => {
     if (isOpen) {
+      authSuccessRef.current = false;
       const initial = options?.initialMode ?? 'login';
       setMode(initial);
       setAuthMethod('password');
@@ -138,6 +141,13 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
     }
   }, [isOpen, options]);
 
+  const handleCancelClose = useCallback(() => {
+    if (!authSuccessRef.current) {
+      void clearPendingBoard();
+    }
+    onClose();
+  }, [onClose]);
+
   useEffect(() => {
     if (cooldown > 0) {
       timerRef.current = setTimeout(() => {
@@ -152,12 +162,12 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        handleCancelClose();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleCancelClose]);
 
   if (!isOpen) return null;
 
@@ -199,9 +209,13 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
     setError(null);
     setGoogleLoading(true);
     try {
+      const url = new URL(window.location.href);
+      if (options?.reason === 'save' || hasPendingBoardSync()) {
+        url.searchParams.set('resume', 'save');
+      }
       await authClient.signIn.social({
         provider: 'google',
-        callbackURL: window.location.href,
+        callbackURL: url.toString(),
       });
     } catch (err: any) {
       setError(err?.message || 'Google sign-in failed. Please try again.');
@@ -466,7 +480,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-        onClick={onClose}
+        onClick={handleCancelClose}
       />
 
       {/* Modal Card */}
@@ -474,7 +488,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
         {/* Close Button */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleCancelClose}
           aria-label="Close modal"
           className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
         >
