@@ -97,6 +97,7 @@ const REASON_CONFIG: Record<
 export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [otpStep, setOtpStep] = useState<'request' | 'verify'>('request');
   const [otpCode, setOtpCode] = useState('');
   const [cooldown, setCooldown] = useState(0);
@@ -110,13 +111,12 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toast = useToast();
 
-
-
   useEffect(() => {
     if (isOpen) {
       setMode(options?.initialMode ?? 'login');
       setAuthMethod('password');
       setOtpStep('request');
+      setIsVerifyingEmail(false);
       setOtpCode('');
       setCooldown(0);
       setError(null);
@@ -183,7 +183,7 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
     try {
       const { error: otpError } = await authClient.emailOtp.sendVerificationOtp({
         email: targetEmail,
-        type: 'sign-in',
+        type: isVerifyingEmail ? 'email-verification' : 'sign-in',
       });
 
       if (otpError) {
@@ -213,18 +213,33 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
     setError(null);
     setSubmitting(true);
     try {
-      const { error: verifyError } = await authClient.signIn.emailOtp({
-        email: targetEmail,
-        otp: targetOtp,
-      });
+      if (isVerifyingEmail) {
+        const { error: verifyError } = await authClient.emailOtp.verifyEmail({
+          email: targetEmail,
+          otp: targetOtp,
+        });
 
-      if (verifyError) {
-        setError(verifyError.message || 'Invalid or expired code.');
-        return;
+        if (verifyError) {
+          setError(verifyError.message || 'Invalid or expired code.');
+          return;
+        }
+
+        toast.success('Email verified and signed in!');
+        completeAuth(targetEmail);
+      } else {
+        const { error: verifyError } = await authClient.signIn.emailOtp({
+          email: targetEmail,
+          otp: targetOtp,
+        });
+
+        if (verifyError) {
+          setError(verifyError.message || 'Invalid or expired code.');
+          return;
+        }
+
+        toast.success('Signed in successfully!');
+        completeAuth(targetEmail);
       }
-
-      toast.success('Signed in successfully!');
-      completeAuth(targetEmail);
     } catch (err: any) {
       setError(err?.message || 'Verification failed. Please try again.');
     } finally {
@@ -234,39 +249,64 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
 
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
+
     setError(null);
     setSubmitting(true);
 
     try {
       if (mode === 'login') {
         const { error: signInError } = await signIn.email({
-          email: email.trim(),
+          email: targetEmail,
           password,
         });
         if (signInError) {
+          if (
+            signInError.code === 'EMAIL_NOT_VERIFIED' ||
+            signInError.message?.toLowerCase().includes('not verified')
+          ) {
+            setIsVerifyingEmail(true);
+            setOtpStep('verify');
+            setCooldown(30);
+            setOtpCode('');
+            toast.info(`Please verify your email. Code sent to ${targetEmail}`);
+            return;
+          }
           setError(signInError.message || 'Invalid email or password.');
           return;
         }
         toast.success('Logged in successfully!');
+        completeAuth(targetEmail);
       } else {
         const trimmedName = name.trim();
         if (!trimmedName) {
           setError('Please provide your name.');
           return;
         }
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters.');
+          return;
+        }
         const { error: signUpError } = await signUp.email({
           name: trimmedName,
-          email: email.trim(),
+          email: targetEmail,
           password,
         });
         if (signUpError) {
           setError(signUpError.message || 'Failed to create account.');
           return;
         }
-        toast.success('Account created and logged in!');
+        // Account created with emailVerified = false. BetterAuth sent the verification code.
+        setIsVerifyingEmail(true);
+        setOtpStep('verify');
+        setCooldown(30);
+        setOtpCode('');
+        toast.info(`Verification code sent to ${targetEmail}`);
       }
-
-      completeAuth(email.trim());
     } catch (err: any) {
       setError(err?.message || 'Authentication failed. Please try again.');
     } finally {
@@ -363,73 +403,6 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
           </span>
         </div>
 
-        {/* Tab Switcher: Login vs Sign Up */}
-        <div className="mb-3 flex rounded-xl border border-neutral-200 bg-neutral-100/80 p-1 dark:border-neutral-800 dark:bg-neutral-800/60">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('login');
-              setError(null);
-            }}
-            className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
-              mode === 'login'
-                ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-neutral-50'
-                : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
-          >
-            Log In
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('signup');
-              setError(null);
-            }}
-            className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
-              mode === 'signup'
-                ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-neutral-50'
-                : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
-
-        {/* Method Switcher: Password vs Email OTP */}
-        <div className="mb-3.5 flex items-center justify-center gap-4 text-xs font-medium text-neutral-500">
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMethod('password');
-              setError(null);
-            }}
-            className={`inline-flex items-center gap-1.5 border-b-2 pb-1 transition ${
-              authMethod === 'password'
-                ? 'border-brand font-semibold text-brand'
-                : 'border-transparent hover:text-neutral-800 dark:hover:text-neutral-200'
-            }`}
-          >
-            <KeyRound size={13} />
-            <span>Password</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAuthMethod('otp');
-              setOtpStep('request');
-              setError(null);
-            }}
-            className={`inline-flex items-center gap-1.5 border-b-2 pb-1 transition ${
-              authMethod === 'otp'
-                ? 'border-brand font-semibold text-brand'
-                : 'border-transparent hover:text-neutral-800 dark:hover:text-neutral-200'
-            }`}
-          >
-            <Mail size={13} />
-            <span>Email Code (OTP)</span>
-          </button>
-        </div>
-
         {/* Error Alert */}
         {error && (
           <div
@@ -440,86 +413,155 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
           </div>
         )}
 
-        {/* Form: Password Mode */}
-        {authMethod === 'password' && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-3">
-            {mode === 'signup' && (
-              <div>
-                <label
-                  htmlFor="auth-name-input"
-                  className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+        {/* Content: Form vs Verification */}
+        {!isVerifyingEmail && otpStep === 'request' ? (
+          <>
+            {/* Tab Switcher: Login vs Sign Up */}
+            <div className="mb-3 flex rounded-xl border border-neutral-200 bg-neutral-100/80 p-1 dark:border-neutral-800 dark:bg-neutral-800/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  setError(null);
+                }}
+                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+                  mode === 'login'
+                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-neutral-50'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+                }`}
+              >
+                Log In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signup');
+                  setError(null);
+                }}
+                className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+                  mode === 'signup'
+                    ? 'bg-white text-neutral-900 shadow-xs dark:bg-neutral-900 dark:text-neutral-50'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+
+            {/* Method Switcher: Password vs Email OTP */}
+            <div className="mb-3.5 flex items-center justify-center gap-4 text-xs font-medium text-neutral-500">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod('password');
+                  setError(null);
+                }}
+                className={`inline-flex items-center gap-1.5 border-b-2 pb-1 transition ${
+                  authMethod === 'password'
+                    ? 'border-brand font-semibold text-brand'
+                    : 'border-transparent hover:text-neutral-800 dark:hover:text-neutral-200'
+                }`}
+              >
+                <KeyRound size={13} />
+                <span>Password</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod('otp');
+                  setOtpStep('request');
+                  setError(null);
+                }}
+                className={`inline-flex items-center gap-1.5 border-b-2 pb-1 transition ${
+                  authMethod === 'otp'
+                    ? 'border-brand font-semibold text-brand'
+                    : 'border-transparent hover:text-neutral-800 dark:hover:text-neutral-200'
+                }`}
+              >
+                <Mail size={13} />
+                <span>Email Code (OTP)</span>
+              </button>
+            </div>
+
+            {/* Form: Password Mode */}
+            {authMethod === 'password' && (
+              <form onSubmit={handlePasswordSubmit} className="space-y-3">
+                {mode === 'signup' && (
+                  <div>
+                    <label
+                      htmlFor="auth-name-input"
+                      className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                    >
+                      Full Name
+                    </label>
+                    <input
+                      id="auth-name-input"
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ada Lovelace"
+                      className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label
+                    htmlFor="auth-email-input"
+                    className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                  >
+                    Email Address
+                  </label>
+                  <input
+                    id="auth-email-input"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="auth-password-input"
+                    className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                  >
+                    Password
+                  </label>
+                  <input
+                    id="auth-password-input"
+                    type="password"
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="•••••••• (min 8 chars)"
+                    className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-50"
                 >
-                  Full Name
-                </label>
-                <input
-                  id="auth-name-input"
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Ada Lovelace"
-                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-                />
-              </div>
+                  {submitting ? (
+                    <span>{mode === 'login' ? 'Signing in…' : 'Creating account…'}</span>
+                  ) : (
+                    <>
+                      <span>{mode === 'login' ? 'Continue with Password' : 'Sign Up & Save Board'}</span>
+                      <ArrowRight size={15} />
+                    </>
+                  )}
+                </button>
+              </form>
             )}
 
-            <div>
-              <label
-                htmlFor="auth-email-input"
-                className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
-              >
-                Email Address
-              </label>
-              <input
-                id="auth-email-input"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="auth-password-input"
-                className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
-              >
-                Password
-              </label>
-              <input
-                id="auth-password-input"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-50"
-            >
-              {submitting ? (
-                <span>{mode === 'login' ? 'Signing in…' : 'Creating account…'}</span>
-              ) : (
-                <>
-                  <span>{mode === 'login' ? 'Continue with Password' : 'Sign Up & Save Board'}</span>
-                  <ArrowRight size={15} />
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* Form: Email OTP Mode */}
-        {authMethod === 'otp' && (
-          <div>
-            {otpStep === 'request' ? (
+            {/* Form: Email OTP Mode (Request) */}
+            {authMethod === 'otp' && (
               <form onSubmit={handleSendOtp} className="space-y-3">
                 <div>
                   <label
@@ -554,65 +596,70 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                   )}
                 </button>
               </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-3">
-                <div className="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
-                  <span>Enter the 6-digit code sent to </span>
-                  <strong className="text-neutral-900 dark:text-neutral-100">{email}</strong>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="auth-otp-code-input"
-                    className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
-                  >
-                    Verification Code
-                  </label>
-                  <input
-                    id="auth-otp-code-input"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    maxLength={6}
-                    required
-                    autoFocus
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="123456"
-                    className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-center font-mono text-xl tracking-[0.3em] text-neutral-900 placeholder:text-neutral-300 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={submitting || otpCode.length < 6}
-                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-50"
-                >
-                  {submitting ? 'Verifying…' : 'Verify & Continue'}
-                </button>
-
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setOtpStep('request')}
-                    className="text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-                  >
-                    ← Change email
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => void handleSendOtp()}
-                    disabled={cooldown > 0 || submitting}
-                    className="inline-flex items-center gap-1 text-brand hover:text-brand-hover disabled:text-neutral-400"
-                  >
-                    <RotateCw size={11} className={submitting ? 'animate-spin' : ''} />
-                    <span>{cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}</span>
-                  </button>
-                </div>
-              </form>
             )}
-          </div>
+          </>
+        ) : (
+          /* Verification View for Password Signup, Unverified Login, and OTP Sign-in */
+          <form onSubmit={handleVerifyOtp} className="space-y-3">
+            <div className="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
+              <span>Enter the 6-digit code sent to </span>
+              <strong className="text-neutral-900 dark:text-neutral-100">{email}</strong>
+            </div>
+
+            <div>
+              <label
+                htmlFor="auth-otp-code-input"
+                className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+              >
+                Verification Code
+              </label>
+              <input
+                id="auth-otp-code-input"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                autoFocus
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="123456"
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-center font-mono text-xl tracking-[0.3em] text-neutral-900 placeholder:text-neutral-300 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting || otpCode.length < 6}
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-50"
+            >
+              {submitting ? 'Verifying…' : 'Verify & Continue'}
+            </button>
+
+            <div className="flex items-center justify-between pt-1 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVerifyingEmail(false);
+                  setOtpStep('request');
+                  setError(null);
+                }}
+                className="text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+              >
+                ← Back
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleSendOtp()}
+                disabled={cooldown > 0 || submitting}
+                className="inline-flex items-center gap-1 text-brand hover:text-brand-hover disabled:text-neutral-400"
+              >
+                <RotateCw size={11} className={submitting ? 'animate-spin' : ''} />
+                <span>{cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}</span>
+              </button>
+            </div>
+          </form>
         )}
 
         {/* Footer info */}
