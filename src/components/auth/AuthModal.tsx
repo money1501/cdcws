@@ -99,12 +99,15 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [otpStep, setOtpStep] = useState<'request' | 'verify'>('request');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [resetStep, setResetStep] = useState<'request' | 'verify'>('request');
   const [otpCode, setOtpCode] = useState('');
   const [cooldown, setCooldown] = useState(0);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,12 +122,15 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
       setAuthMethod('password');
       setOtpStep('request');
       setIsVerifyingEmail(false);
+      setIsResettingPassword(false);
+      setResetStep('request');
       setOtpCode('');
       setCooldown(0);
       setError(null);
       setName('');
       setEmail('');
       setPassword('');
+      setNewPassword('');
       setGoogleLoading(false);
       setTimeout(() => {
         emailInputRef.current?.focus();
@@ -158,8 +164,11 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   function switchMode(newMode: 'login' | 'signup') {
     setMode(newMode);
     setPassword('');
+    setNewPassword('');
     setError(null);
     setIsVerifyingEmail(false);
+    setIsResettingPassword(false);
+    setResetStep('request');
     setOtpStep('request');
     setTimeout(() => {
       emailInputRef.current?.focus();
@@ -170,13 +179,19 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
   const reasonInfo = REASON_CONFIG[reason];
   const Icon = reasonInfo.icon;
 
-  const headingTitle =
-    mode === 'signup'
+  const headingTitle = isResettingPassword
+    ? resetStep === 'verify'
+      ? 'Set new password'
+      : 'Reset your password'
+    : mode === 'signup'
       ? 'Create your Boared account'
       : (options?.title || reasonInfo.title);
 
-  const headingDesc =
-    mode === 'signup'
+  const headingDesc = isResettingPassword
+    ? resetStep === 'verify'
+      ? `Enter the code sent to ${email} and choose your new password.`
+      : 'Enter your email address to receive a verification code and set a password.'
+    : mode === 'signup'
       ? 'Join Boared to save, share, and collaborate on boards.'
       : (options?.description || reasonInfo.description);
 
@@ -271,6 +286,89 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
     }
   }
 
+  async function handleSendResetOtp(e?: FormEvent) {
+    if (e) e.preventDefault();
+    const targetEmail = email.trim().toLowerCase();
+    if (!targetEmail) {
+      setError('Please enter your email address.');
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      const { error: otpError } = await authClient.emailOtp.sendVerificationOtp({
+        email: targetEmail,
+        type: 'forget-password',
+      });
+
+      if (otpError) {
+        setError(otpError.message || 'Failed to send reset code.');
+        return;
+      }
+
+      setResetStep('verify');
+      setCooldown(30);
+      setOtpCode('');
+      setNewPassword('');
+      toast.info(`Reset code sent to ${targetEmail}`);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send reset code.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleResetPasswordSubmit(e: FormEvent) {
+    e.preventDefault();
+    const targetEmail = email.trim().toLowerCase();
+    const targetOtp = otpCode.trim();
+    if (!targetOtp || targetOtp.length < 6) {
+      setError('Please enter the full 6-digit code.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      const { error: resetError } = await authClient.emailOtp.resetPassword({
+        email: targetEmail,
+        otp: targetOtp,
+        password: newPassword,
+      });
+
+      if (resetError) {
+        setError(resetError.message || 'Failed to set password. The code may be invalid or expired.');
+        return;
+      }
+
+      // Automatically sign in with the new password
+      const { error: signInError } = await signIn.email({
+        email: targetEmail,
+        password: newPassword,
+      });
+
+      if (!signInError) {
+        toast.success('Password updated and signed in!');
+        completeAuth(targetEmail);
+        return;
+      }
+
+      toast.success('Password set successfully! Please log in.');
+      setIsResettingPassword(false);
+      setResetStep('request');
+      setPassword(newPassword);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to set password. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
     const targetEmail = email.trim().toLowerCase();
@@ -300,7 +398,9 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
             toast.info(`Please verify your email. Code sent to ${targetEmail}`);
             return;
           }
-          setError(signInError.message || 'Invalid email or password.');
+          setError(
+            'Wrong email or password. If you signed up with an email code or Google, use that method, or choose Forgot password to set a password.',
+          );
           return;
         }
         toast.success('Logged in successfully!');
@@ -402,31 +502,6 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
           </p>
         </div>
 
-        {/* Google OAuth Button */}
-        <button
-          type="button"
-          onClick={handleGoogleSignIn}
-          disabled={googleLoading || submitting}
-          className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-neutral-300 bg-white py-2.5 text-xs font-semibold text-neutral-700 shadow-xs transition hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-750"
-        >
-          {googleLoading ? (
-            <Loader2 size={16} className="animate-spin text-brand" />
-          ) : (
-            <GoogleIcon className="h-4 w-4 shrink-0" />
-          )}
-          <span>{googleLoading ? 'Connecting to Google…' : 'Continue with Google'}</span>
-        </button>
-
-        {/* Divider */}
-        <div className="relative my-4 flex items-center justify-center">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
-          </div>
-          <span className="relative bg-white px-3 text-[11px] font-medium uppercase tracking-wider text-neutral-400 dark:bg-neutral-900 dark:text-neutral-500">
-            or with email
-          </span>
-        </div>
-
         {/* Error Alert */}
         {error && (
           <div
@@ -437,9 +512,167 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
           </div>
         )}
 
-        {/* Content: Form vs Verification */}
-        {!isVerifyingEmail && otpStep === 'request' ? (
+        {/* Mode Branching */}
+        {isResettingPassword ? (
+          /* Forgot Password Flow */
+          resetStep === 'request' ? (
+            <form onSubmit={handleSendResetOtp} className="space-y-3">
+              <div>
+                <label
+                  htmlFor="auth-reset-email-input"
+                  className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                >
+                  Email Address
+                </label>
+                <input
+                  ref={emailInputRef}
+                  id="auth-reset-email-input"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-50"
+              >
+                {submitting ? (
+                  <span>Sending Reset Code…</span>
+                ) : (
+                  <>
+                    <span>Send 6-Digit Reset Code</span>
+                    <ArrowRight size={15} />
+                  </>
+                )}
+              </button>
+
+              <div className="pt-2 text-center text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsResettingPassword(false);
+                    setError(null);
+                    setTimeout(() => emailInputRef.current?.focus(), 50);
+                  }}
+                  className="text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                >
+                  ← Back to log in
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
+              <div className="rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
+                <span>Enter the 6-digit code sent to </span>
+                <strong className="text-neutral-900 dark:text-neutral-100">{email}</strong>
+                <span> to set your password.</span>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="auth-reset-otp-input"
+                  className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                >
+                  6-Digit Verification Code
+                </label>
+                <input
+                  id="auth-reset-otp-input"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  required
+                  autoFocus
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-center font-mono text-xl tracking-[0.3em] text-neutral-900 placeholder:text-neutral-300 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="auth-new-password-input"
+                  className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                >
+                  New Password
+                </label>
+                <input
+                  id="auth-new-password-input"
+                  type="password"
+                  required
+                  minLength={8}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="•••••••• (min 8 chars)"
+                  className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submitting || otpCode.length < 6 || newPassword.length < 8}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:opacity-50"
+              >
+                {submitting ? 'Setting password…' : 'Set Password & Sign In'}
+              </button>
+
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetStep('request');
+                    setError(null);
+                  }}
+                  className="text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+                >
+                  ← Back
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => void handleSendResetOtp()}
+                  disabled={cooldown > 0 || submitting}
+                  className="inline-flex items-center gap-1 text-brand hover:text-brand-hover disabled:text-neutral-400"
+                >
+                  <RotateCw size={11} className={submitting ? 'animate-spin' : ''} />
+                  <span>{cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}</span>
+                </button>
+              </div>
+            </form>
+          )
+        ) : !isVerifyingEmail && otpStep === 'request' ? (
           <div className="transition-opacity duration-150">
+            {/* Google OAuth Button */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading || submitting}
+              className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-neutral-300 bg-white py-2.5 text-xs font-semibold text-neutral-700 shadow-xs transition hover:bg-neutral-50 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-750"
+            >
+              {googleLoading ? (
+                <Loader2 size={16} className="animate-spin text-brand" />
+              ) : (
+                <GoogleIcon className="h-4 w-4 shrink-0" />
+              )}
+              <span>{googleLoading ? 'Connecting to Google…' : 'Continue with Google'}</span>
+            </button>
+
+            {/* Divider */}
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-neutral-200 dark:border-neutral-800" />
+              </div>
+              <span className="relative bg-white px-3 text-[11px] font-medium uppercase tracking-wider text-neutral-400 dark:bg-neutral-900 dark:text-neutral-500">
+                or with email
+              </span>
+            </div>
+
             {/* Method Switcher: Password vs Email OTP */}
             <div className="mb-3.5 flex items-center justify-center gap-4 text-xs font-medium text-neutral-500">
               <button
@@ -520,12 +753,28 @@ export function AuthModal({ isOpen, options, onClose }: AuthModalProps) {
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="auth-password-input"
-                    className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300"
-                  >
-                    Password
-                  </label>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label
+                      htmlFor="auth-password-input"
+                      className="block text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                    >
+                      Password
+                    </label>
+                    {mode === 'login' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsResettingPassword(true);
+                          setResetStep('request');
+                          setError(null);
+                          setTimeout(() => emailInputRef.current?.focus(), 50);
+                        }}
+                        className="text-xs text-brand hover:underline underline-offset-2"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
                   <input
                     id="auth-password-input"
                     type="password"
